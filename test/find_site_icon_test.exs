@@ -48,7 +48,7 @@ defmodule FindSiteIconTest do
   """
 
   test "finds the site icon" do
-    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> @nytimes_html end do
+    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> {:ok, @nytimes_html} end do
       assert FindSiteIcon.find_icon("https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump") ==
                "https://www.nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
 
@@ -61,7 +61,8 @@ defmodule FindSiteIconTest do
   end
 
   test "finds the site icon when precomposed isn't present" do
-    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> @nytimes_html_no_precomposed end do
+    with_mock FindSiteIcon.HTMLFetcher,
+      fetch_html: fn _url -> {:ok, @nytimes_html_no_precomposed} end do
       assert FindSiteIcon.find_icon("https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump") ==
                "https://www.nytimes.com/vi-assets/static-assets/apple-touch-icon-28865b72953380a40aa43318108876cb.png"
 
@@ -74,10 +75,33 @@ defmodule FindSiteIconTest do
   end
 
   test "returns nil when no icon found" do
-    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> @zombocom_html end do
+    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> {:ok, @zombocom_html} end do
       assert FindSiteIcon.find_icon("https://html5zombo.com") == nil
 
       assert_called(FindSiteIcon.HTMLFetcher.fetch_html("https://html5zombo.com"))
+    end
+  end
+
+  test "returns nil when fetching page errors out" do
+    with_mock FindSiteIcon.HTMLFetcher,
+      fetch_html: fn _url ->
+        {:error,
+         %Meeseeks.Error{
+           metadata: %{
+             description: "invalid tuple tree node",
+             input:
+               {:error,
+                {:tls_alert,
+                 {:bad_certificate,
+                  'TLS client: In state certify at ssl_handshake.erl:1885 generated CLIENT ALERT: Fatal - Bad Certificate\n'}}}
+           },
+           reason: :invalid_input,
+           type: :parser
+         }}
+      end do
+      assert FindSiteIcon.find_icon("https://zombo.com") == nil
+
+      assert_called(FindSiteIcon.HTMLFetcher.fetch_html("https://zombo.com"))
     end
   end
 end

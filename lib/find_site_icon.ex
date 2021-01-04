@@ -17,13 +17,15 @@ defmodule FindSiteIcon do
       "https://nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
   """
   def find_icon(url) do
-    with html <- HTMLFetcher.fetch_html(url),
+    with {:ok, html} <- HTMLFetcher.fetch_html(url),
          parsed_content <- Meeseeks.parse(html) do
       parsed_content
       |> link_tags()
       |> largest()
       |> Meeseeks.attr("href")
       |> relative_to_absolute_url(url)
+    else
+      _ -> nil
     end
   end
 
