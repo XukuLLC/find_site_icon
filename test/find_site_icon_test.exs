@@ -1,107 +1,261 @@
 defmodule FindSiteIconTest do
   use ExUnit.Case, async: true
 
+  alias FindSiteIcon.{Cache, HTMLFetcher, IconInfo}
+  alias FindSiteIcon.Util.IconUtils
+
   import Mock
 
-  @nytimes_html """
-    <html>
-      <head>
-        <link data-rh="true" rel="alternate" hrefLang="en" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"/>
-        <link data-rh="true" rel="canonical" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"/>
-        <link data-rh="true" rel="amphtml" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump.amp.html"/>
-        <link data-rh="true" rel="shortcut icon" href="/vi-assets/static-assets/favicon-d2483f10ef688e6f89e23806b9700298.ico"/>
-        <link data-rh="true" rel="apple-touch-icon" href="/vi-assets/static-assets/apple-touch-icon-28865b72953380a40aa43318108876cb.png"/>
-        <link data-rh="true" rel="apple-touch-icon-precomposed" sizes="144×144" href="/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"/>
-        <link data-rh="true" rel="apple-touch-icon-precomposed" sizes="114×114" href="/vi-assets/static-assets/ios-iphone-114x144-080e7ec6514fdc62bcbb7966d9b257d2.png"/>
-        <link data-rh="true" rel="apple-touch-icon-precomposed" href="/vi-assets/static-assets/ios-default-homescreen-57x57-43808a4cd5333b648057a01624d84960.png"/>
-        <link href="https://g1.nyt.com/fonts/css/web-fonts.5810def60210a2fa7d0848f37e3fa048bb6147b1.css" rel="stylesheet" type="text/css"/>
-        <link rel="stylesheet" href="/vi-assets/static-assets/global-69acc7c8fb6a313ed7e8641e4a88bf30.css"/>
-      </head>
-      <body></body>
-    </html>
-  """
+  test "finds the site icon when cache is populated" do
+    url = "https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"
 
-  @nytimes_html_no_precomposed """
-    <html>
-      <head>
-        <link data-rh="true" rel="alternate" hrefLang="en" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"/>
-        <link data-rh="true" rel="canonical" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"/>
-        <link data-rh="true" rel="amphtml" href="https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump.amp.html"/>
-        <link data-rh="true" rel="shortcut icon" href="/vi-assets/static-assets/favicon-d2483f10ef688e6f89e23806b9700298.ico"/>
-        <link data-rh="true" rel="apple-touch-icon" href="/vi-assets/static-assets/apple-touch-icon-28865b72953380a40aa43318108876cb.png"/>
-        <link href="https://g1.nyt.com/fonts/css/web-fonts.5810def60210a2fa7d0848f37e3fa048bb6147b1.css" rel="stylesheet" type="text/css"/>
-        <link rel="stylesheet" href="/vi-assets/static-assets/global-69acc7c8fb6a313ed7e8641e4a88bf30.css"/>
-      </head>
-      <body></body>
-    </html>
-  """
+    icon_url =
+      "https://www.nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
 
-  @zombocom_html """
-  <html>
-    <head>
-      <title>ZOMBO</title>
-    </head>
-    <body>
-      Anything is possible at Zombocom
-    </body>
-  </html>
-  """
+    with_mock Cache, get: fn _url -> icon_url end do
+      assert FindSiteIcon.find_icon(url) ==
+               icon_url
 
-  test "finds the site icon" do
-    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> {:ok, @nytimes_html} end do
-      assert FindSiteIcon.find_icon("https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump") ==
-               "https://www.nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
-
-      assert_called(
-        FindSiteIcon.HTMLFetcher.fetch_html(
-          "https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"
-        )
-      )
+      assert_called(Cache.get(url))
     end
   end
 
-  test "finds the site icon when precomposed isn't present" do
-    with_mock FindSiteIcon.HTMLFetcher,
-      fetch_html: fn _url -> {:ok, @nytimes_html_no_precomposed} end do
-      assert FindSiteIcon.find_icon("https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump") ==
-               "https://www.nytimes.com/vi-assets/static-assets/apple-touch-icon-28865b72953380a40aa43318108876cb.png"
+  describe "finds the site icon when cache is empty" do
+    test "link tags present and hold largest icon in favicon" do
+      icon_relative_url = "/favicon-1920831098fa0df09sdf8a09sd8f.ico"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
 
-      assert_called(
-        FindSiteIcon.HTMLFetcher.fetch_html(
-          "https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"
-        )
-      )
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="#{icon_relative_url}"/>
+          <link rel="apple-touch-icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
     end
-  end
 
-  test "returns nil when no icon found" do
-    with_mock FindSiteIcon.HTMLFetcher, fetch_html: fn _url -> {:ok, @zombocom_html} end do
-      assert FindSiteIcon.find_icon("https://html5zombo.com") == nil
+    test "link tags present and hold largest icon in apple-touch-icon" do
+      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
 
-      assert_called(FindSiteIcon.HTMLFetcher.fetch_html("https://html5zombo.com"))
+      html = """
+      <html>
+        <head>
+          <link rel="apple-touch-icon" href="#{icon_relative_url}"/>
+          <link rel="shortcut icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
     end
-  end
 
-  test "returns nil when fetching page errors out" do
-    with_mock FindSiteIcon.HTMLFetcher,
-      fetch_html: fn _url ->
-        {:error,
-         %Meeseeks.Error{
-           metadata: %{
-             description: "invalid tuple tree node",
-             input:
-               {:error,
-                {:tls_alert,
-                 {:bad_certificate,
-                  'TLS client: In state certify at ssl_handshake.erl:1885 generated CLIENT ALERT: Fatal - Bad Certificate\n'}}}
-           },
-           reason: :invalid_input,
-           type: :parser
-         }}
-      end do
-      assert FindSiteIcon.find_icon("https://zombo.com") == nil
+    test "link tags present and hold largest icon in apple-touch-icon-precomposed" do
+      icon_relative_url = "/apple-touch-icon-precomposed-1920831098fa0df09sdf8a09sd8f.ico"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
 
-      assert_called(FindSiteIcon.HTMLFetcher.fetch_html("https://zombo.com"))
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon" href="/bad_url_2.png"/>
+          <link rel="apple-touch-icon-precomposed" href="#{icon_relative_url}"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
+    end
+
+    test "link tags present but all invalid and yet icon present in undefined favicon.ico" do
+      icon_relative_url = "/favicon.ico"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="#{icon_relative_url}-123234234j22342.ico"/>
+          <link rel="apple-touch-icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
+    end
+
+    test "link tags present but all invalid and yet icon present in undefined apple-touch-icon.png" do
+      icon_relative_url = "/apple-touch-icon.png"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="/bad_url_3.png"/>
+          <link rel="apple-touch-icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
+    end
+
+    test "link tags absent and yet icon present in undefined favicon.ico" do
+      icon_relative_url = "/favicon.ico"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
+    end
+
+    test "link tags absent and yet icon present in undefined apple-touch-icon.png" do
+      icon_relative_url = "/apple-touch-icon.png"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == icon_url
+      end
+    end
+
+    test "link tags absent and nothing exists in any of the predefined locations either" do
+      url = "https://www.nytimes.com"
+
+      html = """
+      <html>
+        <head>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == nil
+      end
+    end
+
+    test "link tags present but invalid and nothing exists in any of the predefined locations either" do
+      url = "https://www.nytimes.com"
+
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="/bad_url_3.png"/>
+          <link rel="apple-touch-icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == nil
+      end
     end
   end
 end
