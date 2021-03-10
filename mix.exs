@@ -1,7 +1,7 @@
 defmodule FindSiteIcon.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @url "https://github.com/XukuLLC/find_site_icon"
   @maintainers [
     "Neil Berkman"
@@ -26,6 +26,7 @@ defmodule FindSiteIcon.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {FindSiteIcon.Application, []},
       extra_applications: [:logger]
     ]
   end
