@@ -13,8 +13,7 @@ defmodule FindSiteIconTest do
       "https://www.nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
 
     with_mock Cache, get: fn _url -> icon_url end do
-      assert FindSiteIcon.find_icon(url) ==
-               icon_url
+      assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
 
       assert_called(Cache.get(url))
     end
@@ -45,7 +44,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -73,7 +72,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -101,7 +100,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -129,7 +128,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -157,7 +156,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -182,7 +181,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -207,7 +206,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == icon_url
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -229,7 +228,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == nil
+        assert {:error, _msg} = FindSiteIcon.find_icon(url)
       end
     end
 
@@ -254,7 +253,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == nil
+        assert {:error, _msg} = FindSiteIcon.find_icon(url)
       end
     end
   end

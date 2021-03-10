@@ -21,29 +21,54 @@ defmodule FindSiteIcon do
   # largest icon size along with expiration timestamp.
   # We have our largest site_icon for a page.
 
+  @spec find_icon(binary, keyword(binary)) :: {:error, <<_::216>>} | {:ok, any}
   @doc """
   Finds the large square icon for a site given its URL. Currently just looks for the largest
   "apple-touch-item-precomposed" with a fallback to "apple-touch-item".
+
+  Can be provided with additional options in the second argument:
+  * :html -> can pass an already fetched html. Will look for icon link tags within the provided
+  html if present.
+  * :default_icon_url -> is used if no icon_url could be fetched.
 
   ## Examples
 
       iex> FindSiteIcon.find_icon("https://nytimes.com")
       "https://nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
   """
-  def find_icon(url, html \\ nil) when is_binary(url) do
+  def find_icon(url, opts \\ []) when is_binary(url) do
+    html = Keyword.get(opts, :html)
+    default_icon_url = Keyword.get(opts, :default_icon_url)
+
+    if URI.parse(url).host != nil do
+      do_find_icon(url, html, default_icon_url)
+    else
+      bad_return("Invalid url", default_icon_url)
+    end
+  end
+
+  defp do_find_icon(url, html, default_icon_url) do
     case Cache.get(url) do
       nil ->
         icon_info = fetch_site_icon(url, html)
 
         if icon_info do
           Cache.update(url, icon_info)
-          icon_info.url
+          {:ok, icon_info.url}
         else
-          nil
+          bad_return("Could not find a valid icon", default_icon_url)
         end
 
       icon_url ->
-        icon_url
+        {:ok, icon_url}
+    end
+  end
+
+  defp bad_return(error_msg, default_icon_url) do
+    if default_icon_url do
+      {:ok, default_icon_url}
+    else
+      {:error, error_msg}
     end
   end
 
