@@ -6,7 +6,7 @@ defmodule FindSiteIcon do
   import Meeseeks.CSS
 
   alias FindSiteIcon.{Cache, HTMLFetcher, IconInfo}
-  alias FindSiteIcon.Util.{IconUtils, StringUtils}
+  alias FindSiteIcon.Util.IconUtils
 
   # The foolproof way to know that we have the largest
   # site icon is to actually download the images and check their sizes. It also handles
@@ -89,7 +89,7 @@ defmodule FindSiteIcon do
 
     html =
       cond do
-        StringUtils.valid_utf8?(html) ->
+        String.valid?(html) ->
           html
 
         base_url != url ->
@@ -162,6 +162,8 @@ defmodule FindSiteIcon do
     |> Enum.map(&link_tags(document, &1))
     |> Enum.flat_map(& &1)
   end
+
+  defp link_tags(_), do: []
 
   defp link_tags(document, rel) do
     document
