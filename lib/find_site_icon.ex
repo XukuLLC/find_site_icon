@@ -73,49 +73,56 @@ defmodule FindSiteIcon do
   end
 
   defp fetch_site_icon(url, html) when is_binary(url) do
-    html =
-      if html do
-        html
-      else
-        case HTMLFetcher.fetch_html(url) do
-          {:ok, result} -> result
-          _ -> nil
-        end
-      end
+    html = usable_html(url, html)
+
+    html
+    |> Meeseeks.parse()
+    # If there is any error with parsing, link_tags will handle it by returning an empty array
+    |> link_tags()
+    |> link_tags_to_urls()
+    |> merge_known_icon_locations()
+    |> relative_to_absolute_urls(url)
+    |> fetch_icons()
+    |> largest_icon()
+  end
+
+  defp usable_html(url, html) do
+    html = html || fetch_html(url)
 
     # We try to fetch the base url instead of the path if there is no valid html in the path
     base_url =
       url |> URI.parse() |> Map.put(:path, nil) |> Map.put(:query, nil) |> URI.to_string()
 
     html =
-      cond do
-        String.valid?(html) ->
-          html
-
-        base_url != url ->
-          case HTMLFetcher.fetch_html(base_url) do
-            {:ok, result} -> result
-            _ -> nil
-          end
+      if String.valid?(html) or base_url == url do
+        html
+      else
+        fetch_html(base_url)
       end
 
-    if html do
+    # If even the base_url string does not match, we try to convert it to latin1
+    # and pray to god that this new string works.
+    # Ref: https://validator.w3.org/
+    # As per this validator, if there is no encoding defined, we try to parse
+    # the response as UTF-8 first and if that fails then as windows-1252.
+    # We can include the wrapper around iconv and use that, but we can also work
+    # with converting the string to simple latin1 format. If some character is
+    # unrecognised, that's fine. The only time that'll be an issue is when the
+    # character is in a link tag, and that is not something we're likely to ever see.
+    if String.valid?(html) do
       html
-      |> Meeseeks.parse()
-      |> link_tags()
-      |> link_tags_to_urls()
-      |> merge_known_icon_locations()
-      |> relative_to_absolute_urls(url)
-      |> fetch_icons()
-      |> largest_icon()
     else
-      # If no html found even after all this, then
-      # We start with no link tags and try some known locations
-      []
-      |> merge_known_icon_locations()
-      |> relative_to_absolute_urls(url)
-      |> fetch_icons()
-      |> largest_icon()
+      case :unicode.characters_to_binary(html, :latin1) do
+        encoded when is_binary(encoded) -> encoded
+        _ -> html
+      end
+    end
+  end
+
+  defp fetch_html(url) do
+    case HTMLFetcher.fetch_html(url) do
+      {:ok, result} -> result
+      _ -> nil
     end
   end
 
