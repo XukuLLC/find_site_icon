@@ -23,8 +23,7 @@ defmodule FindSiteIcon do
 
   @spec find_icon(binary, keyword(binary)) :: {:error, <<_::216>>} | {:ok, any}
   @doc """
-  Finds the large square icon for a site given its URL. Currently just looks for the largest
-  "apple-touch-item-precomposed" with a fallback to "apple-touch-item".
+  Finds the large square icon for a site given its URL.
 
   Can be provided with additional options in the second argument:
   * :html -> can pass an already fetched html. Will look for icon link tags within the provided
@@ -34,7 +33,7 @@ defmodule FindSiteIcon do
   ## Examples
 
       iex> FindSiteIcon.find_icon("https://nytimes.com")
-      "https://nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
+      {:ok, "https://nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"}
   """
   def find_icon(url, opts \\ []) when is_binary(url) do
     html = Keyword.get(opts, :html)

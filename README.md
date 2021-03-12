@@ -1,7 +1,17 @@
 # FindSiteIcon
 
-Finds a large icon for a website given a URL. Currently just looks for the largest
-  "apple-touch-item-precomposed" icon with a fallback to "apple-touch-item".
+Finds a large icon for a website given a URL.
+
+## Usage
+```elixir
+case FindSiteIcon.find_icon(url, opts) do
+  {:ok, icon_url} -> # A usable icon_url
+  {:error, reason} -> # Reason for why the icon_url could not be fetched.
+```
+
+`opts` is an optional keyword list.
+* `html` -> If provided, it does not need to fetch the html for the url, to extract the icons.
+* `default_icon_url` -> Will be used if no valid icon_url found. Response is always {:ok, icon_url || default_icon_url} in this case.
 
 ## Installation
 
@@ -10,7 +20,7 @@ The package can be installed by adding `find_site_icon` to your list of dependen
 ```elixir
 def deps do
   [
-    {:find_site_icon, "~> 0.1.0"}
+    {:find_site_icon, "~> 0.3.0"}
   ]
 end
 ```
