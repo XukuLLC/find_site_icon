@@ -6,7 +6,7 @@ defmodule FindSiteIcon do
   import Meeseeks.CSS
 
   alias FindSiteIcon.{Cache, HTMLFetcher, IconInfo}
-  alias FindSiteIcon.Util.{IconUtils, StringUtils}
+  alias FindSiteIcon.Util.IconUtils
 
   # The foolproof way to know that we have the largest
   # site icon is to actually download the images and check their sizes. It also handles
@@ -21,76 +21,108 @@ defmodule FindSiteIcon do
   # largest icon size along with expiration timestamp.
   # We have our largest site_icon for a page.
 
+  @spec find_icon(binary, keyword(binary)) :: {:error, <<_::216>>} | {:ok, any}
   @doc """
   Finds the large square icon for a site given its URL. Currently just looks for the largest
   "apple-touch-item-precomposed" with a fallback to "apple-touch-item".
+
+  Can be provided with additional options in the second argument:
+  * :html -> can pass an already fetched html. Will look for icon link tags within the provided
+  html if present.
+  * :default_icon_url -> is used if no icon_url could be fetched.
 
   ## Examples
 
       iex> FindSiteIcon.find_icon("https://nytimes.com")
       "https://nytimes.com/vi-assets/static-assets/ios-ipad-144x144-28865b72953380a40aa43318108876cb.png"
   """
-  def find_icon(url, html \\ nil) when is_binary(url) do
+  def find_icon(url, opts \\ []) when is_binary(url) do
+    html = Keyword.get(opts, :html)
+    default_icon_url = Keyword.get(opts, :default_icon_url)
+
+    if URI.parse(url).host != nil do
+      do_find_icon(url, html, default_icon_url)
+    else
+      bad_return("Invalid url", default_icon_url)
+    end
+  end
+
+  defp do_find_icon(url, html, default_icon_url) do
     case Cache.get(url) do
       nil ->
         icon_info = fetch_site_icon(url, html)
 
         if icon_info do
           Cache.update(url, icon_info)
-          icon_info.url
+          {:ok, icon_info.url}
         else
-          nil
+          bad_return("Could not find a valid icon", default_icon_url)
         end
 
       icon_url ->
-        icon_url
+        {:ok, icon_url}
+    end
+  end
+
+  defp bad_return(error_msg, default_icon_url) do
+    if default_icon_url do
+      {:ok, default_icon_url}
+    else
+      {:error, error_msg}
     end
   end
 
   defp fetch_site_icon(url, html) when is_binary(url) do
-    html =
-      if html do
-        html
-      else
-        case HTMLFetcher.fetch_html(url) do
-          {:ok, result} -> result
-          _ -> nil
-        end
-      end
+    html = usable_html(url, html)
+
+    html
+    |> Meeseeks.parse()
+    # If there is any error with parsing, link_tags will handle it by returning an empty array
+    |> link_tags()
+    |> link_tags_to_urls()
+    |> merge_known_icon_locations()
+    |> relative_to_absolute_urls(url)
+    |> fetch_icons()
+    |> largest_icon()
+  end
+
+  defp usable_html(url, html) do
+    html = html || fetch_html(url)
 
     # We try to fetch the base url instead of the path if there is no valid html in the path
     base_url =
       url |> URI.parse() |> Map.put(:path, nil) |> Map.put(:query, nil) |> URI.to_string()
 
     html =
-      cond do
-        StringUtils.valid_utf8?(html) ->
-          html
-
-        base_url != url ->
-          case HTMLFetcher.fetch_html(base_url) do
-            {:ok, result} -> result
-            _ -> nil
-          end
+      if String.valid?(html) or base_url == url do
+        html
+      else
+        fetch_html(base_url)
       end
 
-    if html do
+    # If even the base_url string does not match, we try to convert it to latin1
+    # and pray to god that this new string works.
+    # Ref: https://validator.w3.org/
+    # As per this validator, if there is no encoding defined, we try to parse
+    # the response as UTF-8 first and if that fails then as windows-1252.
+    # We can include the wrapper around iconv and use that, but we can also work
+    # with converting the string to simple latin1 format. If some character is
+    # unrecognised, that's fine. The only time that'll be an issue is when the
+    # character is in a link tag, and that is not something we're likely to ever see.
+    if String.valid?(html) do
       html
-      |> Meeseeks.parse()
-      |> link_tags()
-      |> link_tags_to_urls()
-      |> merge_known_icon_locations()
-      |> relative_to_absolute_urls(url)
-      |> fetch_icons()
-      |> largest_icon()
     else
-      # If no html found even after all this, then
-      # We start with no link tags and try some known locations
-      []
-      |> merge_known_icon_locations()
-      |> relative_to_absolute_urls(url)
-      |> fetch_icons()
-      |> largest_icon()
+      case :unicode.characters_to_binary(html, :latin1) do
+        encoded when is_binary(encoded) -> encoded
+        _ -> html
+      end
+    end
+  end
+
+  defp fetch_html(url) do
+    case HTMLFetcher.fetch_html(url) do
+      {:ok, result} -> result
+      _ -> nil
     end
   end
 
@@ -137,6 +169,8 @@ defmodule FindSiteIcon do
     |> Enum.map(&link_tags(document, &1))
     |> Enum.flat_map(& &1)
   end
+
+  defp link_tags(_), do: []
 
   defp link_tags(document, rel) do
     document
