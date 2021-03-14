@@ -358,5 +358,37 @@ defmodule FindSiteIconTest do
         assert {:ok, ^icon_url} = FindSiteIcon.find_icon(url)
       end
     end
+
+    test "if image url is relative, it is converted to proper url" do
+      icon_relative_url = "../images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+      url = "https://www.nytimes.com/news/biden.html"
+
+      icon_url =
+        "https://www.nytimes.com/images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+
+      html = """
+      <html>
+        <head>
+          <link rel="apple-touch-icon" href="#{icon_relative_url}"/>
+          <link rel="shortcut icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:error, "no html provided"} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           # Icon url is not one of the common urls, so it should not match with any
+           # automatically merged icon location.
+           ^icon_url -> %IconInfo{url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url, html: html) == {:ok, icon_url}
+      end
+    end
   end
 end
