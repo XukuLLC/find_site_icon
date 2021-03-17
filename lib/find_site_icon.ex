@@ -82,6 +82,7 @@ defmodule FindSiteIcon do
     |> merge_known_icon_locations()
     |> relative_to_absolute_urls(url)
     |> fetch_icons()
+    |> filter_empty_icons()
     |> largest_icon()
   end
 
@@ -128,14 +129,36 @@ defmodule FindSiteIcon do
   defp largest_icon([]), do: nil
 
   defp largest_icon(icon_infos) when is_list(icon_infos) do
+    # We'll have a priority here. PNG over JPEG over ICO.
+    # Also, we'll filter out 0 size images.
     # Here, png icons are usually larger for smaller size on disk. We'll prefer png icons
     # unless all we have are .ico
-    case Enum.filter(icon_infos, fn %IconInfo{url: icon_url} ->
-           String.ends_with?(icon_url, ".png")
-         end) do
-      [] -> Enum.max_by(icon_infos, & &1.size)
-      only_pngs -> Enum.max_by(only_pngs, & &1.size)
-    end
+    pngs =
+      Enum.filter(icon_infos, fn %IconInfo{url: icon_url} ->
+        String.ends_with?(icon_url, ".png")
+      end)
+
+    jpegs =
+      Enum.filter(icon_infos, fn %IconInfo{url: icon_url} ->
+        String.ends_with?(icon_url, ".jpg") || String.ends_with?(icon_url, ".jpeg")
+      end)
+
+    icon_set =
+      cond do
+        !Enum.empty?(pngs) -> pngs
+        !Enum.empty?(jpegs) -> jpegs
+        true -> icon_infos
+      end
+
+    Enum.max_by(icon_set, & &1.size)
+  end
+
+  defp filter_empty_icons(icon_infos) when is_list(icon_infos) do
+    # We'll remove icon infos with size == 0 here
+    Enum.filter(icon_infos, fn
+      %IconInfo{size: size} when is_integer(size) and size > 0 -> true
+      _ -> false
+    end)
   end
 
   defp fetch_icons(urls) when is_list(urls) do
