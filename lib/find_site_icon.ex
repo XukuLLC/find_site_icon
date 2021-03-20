@@ -157,7 +157,7 @@ defmodule FindSiteIcon do
   defp filter_empty_icons(icon_infos) when is_list(icon_infos) do
     # We'll remove icon infos with size == 0 here
     Enum.filter(icon_infos, fn
-      %IconInfo{size: size} when is_integer(size) and size > 0 -> true
+      %IconInfo{size: size} when (is_integer(size) and size > 0) or is_nil(size) -> true
       _ -> false
     end)
   end
