@@ -20,6 +20,26 @@ defmodule FindSiteIconTest do
     end
   end
 
+  test "A bunch of common and peculiar websites, we should be able to fetch their icons" do
+    websites = [
+      "https://www.washingtonpost.com/",
+      "https://www.wsj.com/",
+      "https://www.thedailybeast.com/",
+      "https://thehustle.co/",
+      "http://paulgraham.com/earnest.html",
+      "https://www.thehindu.com/"
+    ]
+
+    websites
+    |> Task.async_stream(fn url -> FindSiteIcon.find_icon(url) end, on_timeout: :kill_task)
+    |> Enum.each(fn
+      {:ok, _} -> assert true
+      # We currently ignore timeouts. These tests are only for peace of mind.
+      {:exit, :timeout} -> assert true
+      _ -> assert false, "Failed to fetch an icon"
+    end)
+  end
+
   describe "finds the site icon when cache is empty" do
     test "link tags present and hold largest icon in favicon" do
       icon_relative_url = "/favicon-1920831098fa0df09sdf8a09sd8f.ico"
