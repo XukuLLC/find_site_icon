@@ -516,5 +516,36 @@ defmodule FindSiteIconTest do
         assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
+
+    test "Remove data encoded images" do
+      encoded_icon =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAABPUlEQVQoz6WSv6rCMBTGOymCIL6BizqIgvgHBRdxcPYJxNkHEDd1EhUclE6uPoKzu4OggoKP4CC3JqZNbJqbGKk3XVq4IcPJB7/DOV8+DdbrP6GQvEYk8kgm8WLBKFX0aBTkcni5ZIxp/M3cQyk9n2GthnVd0V8vejjAcpms13+A+53ZtqD2e5DPu7pzu/FGgtpsnq3WF4CNhtXviwpjIxZzdZDJ4NlMNDoeQamkAKjTkbUc3QXMdyN6OoFCIRBgDQZyVFip+APcAHq98oLoOmq3/YHPQQhWq9Zo5A/Y260wSu6QSgXbodd7ozb/2WAudbuu/g/g2Wzi8VhUpmnE48pIw6EMCA+V5nWDj7rbgWLxqyP0CRpfOptVAULk75DVyhvKy4XnF8/nmifeIJ3G0ylzHEUPhx+JBJ5MuFG/5/Ynabxw9yEAAAAASUVORK5CYII="
+
+      url = "https://www.nytimes.com"
+      bad_url = url <> encoded_icon
+
+      html = """
+      <html>
+        <head>
+          <link rel="apple-touch-icon" href="#{encoded_icon}"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^bad_url ->
+             %IconInfo{url: bad_url, size: 1234}
+
+           _ ->
+             nil
+         end}
+      ]) do
+        assert {:error, _} = FindSiteIcon.find_icon(url)
+      end
+    end
   end
 end
