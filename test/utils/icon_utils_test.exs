@@ -26,9 +26,9 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
   end
 
   test "generate_size/1" do
-    assert IconUtils.generate_size(nil) == 0
+    assert IconUtils.generate_size(nil) == nil
     assert IconUtils.generate_size("") == 0
-    assert IconUtils.generate_size(123) == 0
+    assert IconUtils.generate_size(123) == nil
     assert IconUtils.generate_size("1234") == 1234
   end
 

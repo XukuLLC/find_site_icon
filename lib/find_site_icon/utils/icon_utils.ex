@@ -58,5 +58,5 @@ defmodule FindSiteIcon.Util.IconUtils do
     end
   end
 
-  def generate_size(_), do: 0
+  def generate_size(_), do: nil
 end
