@@ -79,6 +79,7 @@ defmodule FindSiteIcon do
     # If there is any error with parsing, link_tags will handle it by returning an empty array
     |> link_tags()
     |> link_tags_to_urls()
+    |> filter_base64_encoded_images()
     |> merge_known_icon_locations()
     |> relative_to_absolute_urls(url)
     |> fetch_icons()
@@ -158,6 +159,14 @@ defmodule FindSiteIcon do
     Enum.filter(icon_infos, fn
       %IconInfo{size: size} when is_integer(size) and size > 0 -> true
       _ -> false
+    end)
+  end
+
+  defp filter_base64_encoded_images(urls) when is_list(urls) do
+    # Remove encoded images, which is done sometimes instead of providing an actual image
+    Enum.filter(urls, fn
+      "data:" <> _ -> false
+      _ -> true
     end)
   end
 
