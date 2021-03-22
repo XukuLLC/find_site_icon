@@ -69,6 +69,37 @@ defmodule FindSiteIconTest do
       end
     end
 
+    test "correct icon url if icon is on another host" do
+      icon_relative_url = "//cdn.cnn.com/cnn/.e/img/3.0/global/misc/apple-touch-icon.png"
+      url = "https://www.cnn.com"
+      icon_url = "https:" <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+          <link rel="shortcut icon" href="#{icon_relative_url}"/>
+          <link rel="apple-touch-icon" href="/bad_url.png"/>
+          <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url ->
+             %IconInfo{url: icon_url, size: 1234}
+
+           _ ->
+             nil
+         end}
+      ]) do
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
+      end
+    end
+
     test "link tags present and hold largest icon in apple-touch-icon" do
       icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
       url = "https://www.nytimes.com"

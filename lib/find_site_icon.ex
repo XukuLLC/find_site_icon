@@ -217,7 +217,7 @@ defmodule FindSiteIcon do
     )
   end
 
-  defp relative_to_absolute_url(%URI{} = base_url, %URI{host: nil} = relative_url) do
+  defp relative_to_absolute_url(%URI{} = base_url, %URI{scheme: nil} = relative_url) do
     base_url |> URI.merge(relative_url) |> URI.to_string()
   end
 
