@@ -1,7 +1,7 @@
 defmodule FindSiteIcon.MixProject do
   use Mix.Project
 
-  @version "0.3.4"
+  @version "0.3.5"
   @url "https://github.com/XukuLLC/find_site_icon"
   @maintainers [
     "Neil Berkman"
