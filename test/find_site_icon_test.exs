@@ -598,5 +598,27 @@ defmodule FindSiteIconTest do
         assert {:error, _} = FindSiteIcon.find_icon(url)
       end
     end
+
+    test "returns from default icon locations when html is nil" do
+      url = "https://www.nytimes.com"
+      icon_url = url <> "/apple-touch-icon.png"
+
+      html = nil
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url ->
+             %IconInfo{url: icon_url, size: 1234}
+
+           _ ->
+             nil
+         end}
+      ]) do
+        assert {:ok, ^icon_url} = FindSiteIcon.find_icon(url)
+      end
+    end
   end
 end

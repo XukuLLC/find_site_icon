@@ -113,9 +113,15 @@ defmodule FindSiteIcon do
     if String.valid?(html) do
       html
     else
-      case :unicode.characters_to_binary(html, :latin1) do
-        encoded when is_binary(encoded) -> encoded
-        _ -> html
+      try do
+        # This will crash at the nil case, so we don't need to handle that separately
+        case :unicode.characters_to_binary(html, :latin1) do
+          encoded when is_binary(encoded) -> encoded
+          _ -> ""
+        end
+      rescue
+        # Just return an empty string and we'll try with the default icon locations
+        _err -> ""
       end
     end
   end
