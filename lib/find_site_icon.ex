@@ -135,29 +135,30 @@ defmodule FindSiteIcon do
 
   defp largest_icon([]), do: nil
 
+  @image_size_considered_for_nil 256
+  # The values here are based on heuristics and can/should be updated based on new info.
+  @image_format_size_multiplier %{png: 2, jpeg: 1, others: 0.05}
+
   defp largest_icon(icon_infos) when is_list(icon_infos) do
-    # We'll have a priority here. PNG over JPEG over ICO.
-    # Also, we'll filter out 0 size images.
-    # Here, png icons are usually larger for smaller size on disk. We'll prefer png icons
-    # unless all we have are .ico
-    pngs =
-      Enum.filter(icon_infos, fn %IconInfo{url: icon_url} ->
-        String.ends_with?(icon_url, ".png")
-      end)
+    # We'll have a priority here. PNG over JPEG over ICO/others.
+    # The reason for the priority is:
+    # * PNG is lossless, so this would give the best images.
+    # * JPEGs are compressed, but usually are very good quality.
+    # * ICO are the standard for website icons, but may not be supported by other places.
+    #   Also, they are way bigger in size compared to their quality.
+    Enum.max_by(icon_infos, fn
+      %IconInfo{url: url, size: size} ->
+        format = icon_format(url)
+        @image_format_size_multiplier[format] * (size || @image_size_considered_for_nil)
+    end)
+  end
 
-    jpegs =
-      Enum.filter(icon_infos, fn %IconInfo{url: icon_url} ->
-        String.ends_with?(icon_url, ".jpg") || String.ends_with?(icon_url, ".jpeg")
-      end)
-
-    icon_set =
-      cond do
-        !Enum.empty?(pngs) -> pngs
-        !Enum.empty?(jpegs) -> jpegs
-        true -> icon_infos
-      end
-
-    Enum.max_by(icon_set, & &1.size)
+  defp icon_format(icon_url) do
+    cond do
+      String.ends_with?(icon_url, ".png") -> :png
+      String.ends_with?(icon_url, ".jpg") || String.ends_with?(icon_url, ".jpeg") -> :jpeg
+      true -> :others
+    end
   end
 
   defp filter_empty_icons(icon_infos) when is_list(icon_infos) do

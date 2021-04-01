@@ -27,14 +27,16 @@ defmodule FindSiteIconTest do
       "https://www.thedailybeast.com/",
       "https://thehustle.co/",
       "http://paulgraham.com/earnest.html",
-      "https://www.thehindu.com/"
+      "https://www.thehindu.com/",
+      "https://www.politico.com/news/2021/03/22/democrats-iowa-race-477497"
     ]
 
     websites
     |> Task.async_stream(fn url -> FindSiteIcon.find_icon(url) end, on_timeout: :kill_task)
     |> Enum.each(fn
       {:ok, _} -> assert true
-      # We currently ignore timeouts. These tests are only for peace of mind.
+      # We currently ignore timeouts. These tests exist to ensure that we can still fetch
+      # all the icons we found issues with.
       {:exit, :timeout} -> assert true
       _ -> assert false, "Failed to fetch an icon"
     end)
@@ -612,6 +614,32 @@ defmodule FindSiteIconTest do
          icon_info_for: fn
            ^icon_url ->
              %IconInfo{url: icon_url, size: 1234}
+
+           _ ->
+             nil
+         end}
+      ]) do
+        assert {:ok, ^icon_url} = FindSiteIcon.find_icon(url)
+      end
+    end
+
+    test "if favicon is way bigger than png, it'll consider the favicon" do
+      url = "https://www.nytimes.com"
+      icon_url = url <> "/favicon.ico"
+      png_icon_url = url <> "/apple-touch-icon.png"
+
+      html = nil
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url ->
+             %IconInfo{url: icon_url, size: 12_345}
+
+           ^png_icon_url ->
+             %IconInfo{url: png_icon_url, size: 123}
 
            _ ->
              nil
