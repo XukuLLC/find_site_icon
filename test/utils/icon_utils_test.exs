@@ -40,6 +40,30 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
     assert IconUtils.extract_header([{"Content-Length", "123"}], "content-length") == "123"
   end
 
+  test "reject_bad_content_type/1" do
+    # Good responses
+    response = {:ok, 200, []}
+    assert IconUtils.reject_bad_content_type(response) == response
+    response = {:ok, 200, [{"content-type", "image/png"}]}
+    assert IconUtils.reject_bad_content_type(response) == response
+    response = {:ok, 200, [{"content-type", "image/jpeg"}]}
+    assert IconUtils.reject_bad_content_type(response) == response
+    response = {:ok, 200, [{"content-type", "image/jpg"}]}
+    assert IconUtils.reject_bad_content_type(response) == response
+    response = {:ok, 200, [{"content-type", "image/*"}]}
+    assert IconUtils.reject_bad_content_type(response) == response
+
+    # Bad responses
+    assert IconUtils.reject_bad_content_type({:error, 200, []}) == nil
+    assert IconUtils.reject_bad_content_type({:ok, 400, []}) == nil
+    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "text/html"}]}) == nil
+    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "text/*"}]}) == nil
+    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "*/*"}]}) == nil
+
+    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "application/json"}]}) ==
+             nil
+  end
+
   describe "icon_info_for/1" do
     test "error response" do
       with_mock HTTPUtils, head: fn _url -> {:error, 200, []} end do

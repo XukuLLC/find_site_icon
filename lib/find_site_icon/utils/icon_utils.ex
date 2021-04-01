@@ -5,8 +5,10 @@ defmodule FindSiteIcon.Util.IconUtils do
   alias FindSiteIcon.IconInfo
   alias FindSiteIcon.Util.HTTPUtils
 
+  @spec unexpired?(any) :: boolean
   def unexpired?(timestamp), do: !expired?(timestamp)
 
+  @spec expired?(any) :: boolean
   def expired?(%DateTime{} = timestamp) do
     case DateTime.compare(DateTime.utc_now(), timestamp) do
       :gt -> true
@@ -16,22 +18,41 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   def expired?(_), do: true
 
+  @spec icon_info_for(binary | nil) :: %IconInfo{} | nil
   def icon_info_for(nil), do: nil
 
   def icon_info_for(icon_url) when is_binary(icon_url) do
-    case HTTPUtils.head(icon_url) do
-      {:ok, 200, headers} ->
-        expiration_timestamp =
-          headers |> extract_header("cache-control") |> generate_expiration_timestamp()
+    icon_url
+    |> HTTPUtils.head()
+    |> reject_bad_content_type()
+    |> generate_info(icon_url)
+  end
 
-        content_length = extract_header(headers, "content-length") |> generate_size()
-        %IconInfo{url: icon_url, expiration_timestamp: expiration_timestamp, size: content_length}
+  @spec reject_bad_content_type(any) :: nil | {:ok, 200, [{binary, binary}]}
+  def reject_bad_content_type({:ok, 200, headers} = response) do
+    content_type = extract_header(headers, "content-type")
 
-      _ ->
-        nil
+    if is_nil(content_type) || String.starts_with?(content_type, "image") do
+      response
+    else
+      nil
     end
   end
 
+  def reject_bad_content_type(_), do: nil
+
+  @spec generate_info({:ok, 200, [{binary, binary}]} | nil, binary) :: %IconInfo{} | nil
+  def generate_info({:ok, 200, headers}, icon_url) do
+    expiration_timestamp =
+      headers |> extract_header("cache-control") |> generate_expiration_timestamp()
+
+    content_length = extract_header(headers, "content-length") |> generate_size()
+    %IconInfo{url: icon_url, expiration_timestamp: expiration_timestamp, size: content_length}
+  end
+
+  def generate_info(nil, _icon_url), do: nil
+
+  @spec extract_header([{binary, binary}], binary) :: binary | nil
   def extract_header(headers, header_name) when is_list(headers) and is_binary(header_name) do
     case Enum.find(headers, fn
            {key, _value} -> String.downcase(key) == header_name
@@ -46,11 +67,13 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   @fourteen_days_in_seconds 14 * 24 * 3600
 
+  @spec generate_expiration_timestamp(any) :: DateTime.t()
   def generate_expiration_timestamp(_cache_control) do
     # to do: parse exact expiration timestamps. Ref: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
     DateTime.utc_now() |> DateTime.add(@fourteen_days_in_seconds, :second)
   end
 
+  @spec generate_size(any) :: integer | nil
   def generate_size(content_length) when is_binary(content_length) do
     case Integer.parse(content_length) do
       {size, _binary} -> size
