@@ -20,7 +20,7 @@ The package can be installed by adding `find_site_icon` to your list of dependen
 ```elixir
 def deps do
   [
-    {:find_site_icon, "~> 0.3.6"}
+    {:find_site_icon, "~> 0.3.8"}
   ]
 end
 ```
