@@ -43,7 +43,7 @@ defmodule FindSiteIconTest do
   end
 
   describe "finds the site icon when cache is empty" do
-    test "link tags present and hold largest icon in favicon" do
+    test "link tags present and hold largest icon in favicon, it'll ignore favicon.ico" do
       icon_relative_url = "/favicon-1920831098fa0df09sdf8a09sd8f.ico"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
@@ -67,7 +67,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
+        assert {:error, _} = FindSiteIcon.find_icon(url)
       end
     end
 
@@ -103,7 +103,7 @@ defmodule FindSiteIconTest do
     end
 
     test "link tags present and hold largest icon in apple-touch-icon" do
-      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
 
@@ -131,7 +131,7 @@ defmodule FindSiteIconTest do
     end
 
     test "link tags present and hold largest icon in apple-touch-icon-precomposed" do
-      icon_relative_url = "/apple-touch-icon-precomposed-1920831098fa0df09sdf8a09sd8f.ico"
+      icon_relative_url = "/apple-touch-icon-precomposed-1920831098fa0df09sdf8a09sd8f.png"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
 
@@ -158,7 +158,7 @@ defmodule FindSiteIconTest do
       end
     end
 
-    test "link tags present but all invalid and yet icon present in undefined favicon.ico" do
+    test "link tags present but all invalid and yet icon present in undefined favicon.ico, will be ignored" do
       icon_relative_url = "/favicon.ico"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
@@ -182,7 +182,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
+        assert {:error, _} = FindSiteIcon.find_icon(url)
       end
     end
 
@@ -197,31 +197,6 @@ defmodule FindSiteIconTest do
           <link rel="shortcut icon" href="/bad_url_3.png"/>
           <link rel="apple-touch-icon" href="/bad_url.png"/>
           <link rel="apple-touch-icon-precomposed" href="/bad_url_2.png"/>
-        </head>
-      </html>
-      """
-
-      with_mocks([
-        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
-        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
-        {IconUtils, [],
-         icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
-           _ -> nil
-         end}
-      ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
-      end
-    end
-
-    test "link tags absent and yet icon present in undefined favicon.ico" do
-      icon_relative_url = "/favicon.ico"
-      url = "https://www.nytimes.com"
-      icon_url = url <> icon_relative_url
-
-      html = """
-      <html>
-        <head>
         </head>
       </html>
       """
@@ -313,6 +288,9 @@ defmodule FindSiteIconTest do
 
     test "error in case of bad url" do
       assert {:error, _msg} = FindSiteIcon.find_icon("bad_url")
+      assert {:error, _msg} = FindSiteIcon.find_icon("//bad_url")
+      assert {:error, _msg} = FindSiteIcon.find_icon("http://bad_url")
+      assert {:error, _msg} = FindSiteIcon.find_icon("https://bad_url")
     end
 
     test "error but with default_icon_url returns default_icon_url" do
@@ -323,7 +301,7 @@ defmodule FindSiteIconTest do
     end
 
     test "if html provided, we use that instead of making an api call" do
-      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
 
@@ -413,11 +391,11 @@ defmodule FindSiteIconTest do
     end
 
     test "if image url is relative, it is converted to proper url" do
-      icon_relative_url = "../images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+      icon_relative_url = "../images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
       url = "https://www.nytimes.com/news/biden.html"
 
       icon_url =
-        "https://www.nytimes.com/images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
+        "https://www.nytimes.com/images/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
 
       html = """
       <html>
@@ -444,7 +422,7 @@ defmodule FindSiteIconTest do
       end
     end
 
-    test "if all empty icons, then no valid icon found" do
+    test "if all icons are empty, then no valid icon can be found" do
       url = "https://www.nytimes.com"
 
       html = """
@@ -469,17 +447,19 @@ defmodule FindSiteIconTest do
       end
     end
 
-    test "if pngs, jpgs and ico all present, then pngs preferred" do
-      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
+    test "if pngs and jpegs all present, and jpeg is the same size as png, we prefer jpeg" do
+      png_icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.png"
+      jpeg_icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.jpeg"
       url = "https://www.nytimes.com"
-      icon_url = url <> icon_relative_url
+      png_icon_url = url <> png_icon_relative_url
+      jpeg_icon_url = url <> jpeg_icon_relative_url
 
       html = """
       <html>
         <head>
-          <link rel="apple-touch-icon" href="#{icon_relative_url}"/>
+          <link rel="apple-touch-icon" href="#{png_icon_relative_url}"/>
           <link rel="shortcut icon" href="/unused_url.jpg"/>
-          <link rel="shortcut icon" href="/unused_url.jpeg"/>
+          <link rel="shortcut icon" href="#{jpeg_icon_relative_url}"/>
           <link rel="apple-touch-icon-precomposed" href="/unused_url.ico"/>
         </head>
       </html>
@@ -491,82 +471,17 @@ defmodule FindSiteIconTest do
         {IconUtils, [],
          icon_info_for: fn
            # Handle the default merge paths we always merge
-           ^icon_url ->
-             %IconInfo{url: icon_url, size: 1234}
+           ^png_icon_url ->
+             %IconInfo{url: png_icon_url, size: 1234}
+
+           ^jpeg_icon_url ->
+             %IconInfo{url: jpeg_icon_url, size: 1234}
 
            any_url ->
-             if String.ends_with?(any_url, ".png") do
-               %IconInfo{url: any_url, size: 123}
-             else
-               %IconInfo{url: any_url, size: 1234}
-             end
+             %IconInfo{url: any_url, size: 123}
          end}
       ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
-      end
-    end
-
-    test "if jpgs and ico present, then jpgs preferred" do
-      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.jpg"
-      url = "https://www.nytimes.com"
-      icon_url = url <> icon_relative_url
-
-      html = """
-      <html>
-        <head>
-          <link rel="apple-touch-icon" href="#{icon_relative_url}"/>
-          <link rel="apple-touch-icon-precomposed" href="/unused_url.ico"/>
-        </head>
-      </html>
-      """
-
-      with_mocks([
-        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
-        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
-        {IconUtils, [],
-         icon_info_for: fn
-           any_url ->
-             if String.ends_with?(any_url, ".png") do
-               nil
-             else
-               %IconInfo{url: any_url, size: 1234}
-             end
-         end}
-      ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
-      end
-    end
-
-    test "if ico present, then ico is used and not ignored" do
-      icon_relative_url = "/apple-touch-icon-1920831098fa0df09sdf8a09sd8f.ico"
-      url = "https://www.nytimes.com"
-      icon_url = url <> icon_relative_url
-
-      html = """
-      <html>
-        <head>
-          <link rel="apple-touch-icon" href="#{icon_relative_url}"/>
-        </head>
-      </html>
-      """
-
-      with_mocks([
-        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
-        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
-        {IconUtils, [],
-         icon_info_for: fn
-           ^icon_url ->
-             %IconInfo{url: icon_url, size: 1234}
-
-           any_url ->
-             if String.ends_with?(any_url, ".png") do
-               nil
-             else
-               %IconInfo{url: any_url, size: 123}
-             end
-         end}
-      ]) do
-        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
+        assert FindSiteIcon.find_icon(url) == {:ok, jpeg_icon_url}
       end
     end
 
@@ -614,32 +529,6 @@ defmodule FindSiteIconTest do
          icon_info_for: fn
            ^icon_url ->
              %IconInfo{url: icon_url, size: 1234}
-
-           _ ->
-             nil
-         end}
-      ]) do
-        assert {:ok, ^icon_url} = FindSiteIcon.find_icon(url)
-      end
-    end
-
-    test "if favicon is way bigger than png, it'll consider the favicon" do
-      url = "https://www.nytimes.com"
-      icon_url = url <> "/favicon.ico"
-      png_icon_url = url <> "/apple-touch-icon.png"
-
-      html = nil
-
-      with_mocks([
-        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
-        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
-        {IconUtils, [],
-         icon_info_for: fn
-           ^icon_url ->
-             %IconInfo{url: icon_url, size: 12_345}
-
-           ^png_icon_url ->
-             %IconInfo{url: png_icon_url, size: 123}
 
            _ ->
              nil

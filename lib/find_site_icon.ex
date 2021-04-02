@@ -39,7 +39,9 @@ defmodule FindSiteIcon do
     html = Keyword.get(opts, :html)
     default_icon_url = Keyword.get(opts, :default_icon_url)
 
-    if URI.parse(url).host != nil do
+    uri = URI.parse(url)
+
+    if not is_nil(uri.host) and not is_nil(uri.scheme) do
       do_find_icon(url, html, default_icon_url)
     else
       bad_return("Invalid url", default_icon_url)
@@ -81,9 +83,11 @@ defmodule FindSiteIcon do
     |> link_tags_to_urls()
     |> filter_base64_encoded_images()
     |> merge_known_icon_locations()
+    |> filter_invalid_urls()
+    |> filter_invalid_image_formats()
     |> relative_to_absolute_urls(url)
     |> fetch_icons()
-    |> filter_empty_icons()
+    |> filter_empty_and_small_icons()
     |> largest_icon()
   end
 
@@ -137,35 +141,77 @@ defmodule FindSiteIcon do
 
   @image_size_considered_for_nil 256
   # The values here are based on heuristics and can/should be updated based on new info.
-  @image_format_size_multiplier %{png: 2, jpeg: 1, others: 0.05}
+  @image_size_for_nil %{
+    png: 2 * @image_size_considered_for_nil,
+    jpeg: @image_size_considered_for_nil,
+    invalid: 0
+  }
+  @image_format_size_multiplier_for_comparison %{png: 1, jpeg: 1.25, invalid: 0}
 
   defp largest_icon(icon_infos) when is_list(icon_infos) do
-    # We'll have a priority here. PNG over JPEG over ICO/others.
-    # The reason for the priority is:
-    # * PNG is lossless, so this would give the best images.
-    # * JPEGs are compressed, but usually are very good quality.
-    # * ICO are the standard for website icons, but may not be supported by other places.
-    #   Also, they are way bigger in size compared to their quality.
+    # What we basically know is:
+    # * PNG is lossless
+    # * JPEG is compressed
+    # So, if a JPEG is the same size as a PNG, its resolution must be higher.
+    # All we care about is the highest resolution image.
     Enum.max_by(icon_infos, fn
       %IconInfo{url: url, size: size} ->
         format = icon_format(url)
-        @image_format_size_multiplier[format] * (size || @image_size_considered_for_nil)
+
+        size_to_consider = size || @image_size_for_nil[format]
+
+        size_to_consider * @image_format_size_multiplier_for_comparison[format]
     end)
   end
 
   defp icon_format(icon_url) do
+    uri = URI.parse(icon_url)
+
     cond do
-      String.ends_with?(icon_url, ".png") -> :png
-      String.ends_with?(icon_url, ".jpg") || String.ends_with?(icon_url, ".jpeg") -> :jpeg
-      true -> :others
+      String.ends_with?(uri.path, ".png") -> :png
+      String.ends_with?(uri.path, ".jpg") || String.ends_with?(icon_url, ".jpeg") -> :jpeg
+      true -> :invalid
     end
   end
 
-  defp filter_empty_icons(icon_infos) when is_list(icon_infos) do
+  defp filter_invalid_urls(urls) do
+    Enum.filter(urls, fn
+      icon_url ->
+        try do
+          uri = URI.parse(icon_url)
+
+          !is_nil(uri.path)
+        rescue
+          _ -> false
+        end
+    end)
+  end
+
+  defp filter_empty_and_small_icons(icon_infos) when is_list(icon_infos) do
     # We'll remove icon infos with size == 0 here
     Enum.filter(icon_infos, fn
-      %IconInfo{size: size} when (is_integer(size) and size > 0) or is_nil(size) -> true
-      _ -> false
+      %IconInfo{size: nil} ->
+        true
+
+      %IconInfo{url: url, size: size} when is_integer(size) ->
+        format = icon_format(url)
+
+        minimum_acceptable_size = @image_size_for_nil[format]
+
+        size >= minimum_acceptable_size
+
+      _ ->
+        false
+    end)
+  end
+
+  defp filter_invalid_image_formats(urls) when is_list(urls) do
+    Enum.filter(urls, fn
+      icon_url ->
+        uri = URI.parse(icon_url)
+
+        String.ends_with?(uri.path, ".png") || String.ends_with?(uri.path, ".jpg") ||
+          String.ends_with?(uri.path, ".jpeg")
     end)
   end
 
@@ -195,7 +241,7 @@ defmodule FindSiteIcon do
   end
 
   defp merge_known_icon_locations(urls) when is_list(urls) do
-    ["/favicon.ico", "/apple-touch-icon.png"] ++ urls
+    ["/apple-touch-icon.png"] ++ urls
   end
 
   defp link_tags_to_urls(tags) when is_list(tags) do
