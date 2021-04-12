@@ -79,26 +79,26 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
 
   describe "icon_info_for/1" do
     test "error response" do
-      with_mock HTTPUtils, do_head: fn _url -> {:error, %Tesla.Env{}} end do
+      with_mock HTTPUtils, do_get: fn _url -> {:error, %Tesla.Env{}} end do
         assert IconUtils.icon_info_for("random_url") == nil
 
-        assert_called(HTTPUtils.do_head("random_url"))
+        assert_called(HTTPUtils.do_get("random_url"))
       end
     end
 
     test "non 200 response" do
-      with_mock HTTPUtils, do_head: fn _url -> {:ok, %Tesla.Env{status: 404}} end do
+      with_mock HTTPUtils, do_get: fn _url -> {:ok, %Tesla.Env{status: 404}} end do
         assert IconUtils.icon_info_for("random_url") == nil
 
-        assert_called(HTTPUtils.do_head("random_url"))
+        assert_called(HTTPUtils.do_get("random_url"))
       end
     end
 
     test "valid response" do
-      with_mock HTTPUtils, do_head: fn _url -> {:ok, %Tesla.Env{status: 200}} end do
+      with_mock HTTPUtils, do_get: fn _url -> {:ok, %Tesla.Env{status: 200}} end do
         assert %FindSiteIcon.IconInfo{} = IconUtils.icon_info_for("random_url")
 
-        assert_called(HTTPUtils.do_head("random_url"))
+        assert_called(HTTPUtils.do_get("random_url"))
       end
     end
   end

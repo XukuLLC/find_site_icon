@@ -11,16 +11,10 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   @timeout 30_000
 
+  @spec do_get(binary | Tesla.Client.t(), keyword, keyword) ::
+          {:error, any} | {:ok, Tesla.Env.t()}
   def do_get(url, headers \\ [], opts \\ []) do
     get(
-      url,
-      opts: [adapter: merged_options(opts)],
-      headers: headers
-    )
-  end
-
-  def do_head(url, headers \\ [], opts \\ []) do
-    head(
       url,
       opts: [adapter: merged_options(opts)],
       headers: headers
