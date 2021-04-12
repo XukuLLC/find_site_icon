@@ -23,7 +23,7 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   def icon_info_for(icon_url) when is_binary(icon_url) do
     icon_url
-    |> HTTPUtils.do_head()
+    |> HTTPUtils.do_get()
     |> reject_bad_content_type()
     |> generate_info(icon_url)
   end
