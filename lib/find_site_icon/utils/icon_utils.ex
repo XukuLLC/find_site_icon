@@ -23,13 +23,13 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   def icon_info_for(icon_url) when is_binary(icon_url) do
     icon_url
-    |> HTTPUtils.head()
+    |> HTTPUtils.do_head()
     |> reject_bad_content_type()
     |> generate_info(icon_url)
   end
 
-  @spec reject_bad_content_type(any) :: nil | {:ok, 200, [{binary, binary}]}
-  def reject_bad_content_type({:ok, 200, headers} = response) do
+  @spec reject_bad_content_type(any) :: nil | {:ok, %Tesla.Env{}}
+  def reject_bad_content_type({:ok, %Tesla.Env{status: 200, headers: headers}} = response) do
     content_type = extract_header(headers, "content-type")
 
     if is_nil(content_type) || String.starts_with?(content_type, "image") do
@@ -41,8 +41,8 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   def reject_bad_content_type(_), do: nil
 
-  @spec generate_info({:ok, 200, [{binary, binary}]} | nil, binary) :: %IconInfo{} | nil
-  def generate_info({:ok, 200, headers}, icon_url) do
+  @spec generate_info({:ok, %Tesla.Env{}} | nil, binary) :: %IconInfo{} | nil
+  def generate_info({:ok, %Tesla.Env{status: 200, headers: headers}}, icon_url) do
     expiration_timestamp =
       headers |> extract_header("cache-control") |> generate_expiration_timestamp()
 
