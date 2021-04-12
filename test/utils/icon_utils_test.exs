@@ -42,50 +42,63 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
 
   test "reject_bad_content_type/1" do
     # Good responses
-    response = {:ok, 200, []}
+    response = {:ok, %Tesla.Env{status: 200, headers: []}}
     assert IconUtils.reject_bad_content_type(response) == response
-    response = {:ok, 200, [{"content-type", "image/png"}]}
+    response = {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "image/png"}]}}
     assert IconUtils.reject_bad_content_type(response) == response
-    response = {:ok, 200, [{"content-type", "image/jpeg"}]}
+    response = {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "image/jpeg"}]}}
     assert IconUtils.reject_bad_content_type(response) == response
-    response = {:ok, 200, [{"content-type", "image/jpg"}]}
+    response = {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "image/jpg"}]}}
     assert IconUtils.reject_bad_content_type(response) == response
-    response = {:ok, 200, [{"content-type", "image/*"}]}
+    response = {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "image/*"}]}}
     assert IconUtils.reject_bad_content_type(response) == response
 
     # Bad responses
-    assert IconUtils.reject_bad_content_type({:error, 200, []}) == nil
-    assert IconUtils.reject_bad_content_type({:ok, 400, []}) == nil
-    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "text/html"}]}) == nil
-    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "text/*"}]}) == nil
-    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "*/*"}]}) == nil
+    assert IconUtils.reject_bad_content_type({:error, %Tesla.Env{status: 200, headers: []}}) ==
+             nil
 
-    assert IconUtils.reject_bad_content_type({:ok, 200, [{"content-type", "application/json"}]}) ==
+    assert IconUtils.reject_bad_content_type({:ok, %Tesla.Env{status: 400, headers: []}}) == nil
+
+    assert IconUtils.reject_bad_content_type(
+             {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "text/html"}]}}
+           ) == nil
+
+    assert IconUtils.reject_bad_content_type(
+             {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "text/*"}]}}
+           ) == nil
+
+    assert IconUtils.reject_bad_content_type(
+             {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "*/*"}]}}
+           ) == nil
+
+    assert IconUtils.reject_bad_content_type(
+             {:ok, %Tesla.Env{status: 200, headers: [{"content-type", "application/json"}]}}
+           ) ==
              nil
   end
 
   describe "icon_info_for/1" do
     test "error response" do
-      with_mock HTTPUtils, head: fn _url -> {:error, 200, []} end do
+      with_mock HTTPUtils, do_head: fn _url -> {:error, %Tesla.Env{}} end do
         assert IconUtils.icon_info_for("random_url") == nil
 
-        assert_called(HTTPUtils.head("random_url"))
+        assert_called(HTTPUtils.do_head("random_url"))
       end
     end
 
     test "non 200 response" do
-      with_mock HTTPUtils, head: fn _url -> {:ok, 404, []} end do
+      with_mock HTTPUtils, do_head: fn _url -> {:ok, %Tesla.Env{status: 404}} end do
         assert IconUtils.icon_info_for("random_url") == nil
 
-        assert_called(HTTPUtils.head("random_url"))
+        assert_called(HTTPUtils.do_head("random_url"))
       end
     end
 
     test "valid response" do
-      with_mock HTTPUtils, head: fn _url -> {:ok, 200, []} end do
+      with_mock HTTPUtils, do_head: fn _url -> {:ok, %Tesla.Env{status: 200}} end do
         assert %FindSiteIcon.IconInfo{} = IconUtils.icon_info_for("random_url")
 
-        assert_called(HTTPUtils.head("random_url"))
+        assert_called(HTTPUtils.do_head("random_url"))
       end
     end
   end

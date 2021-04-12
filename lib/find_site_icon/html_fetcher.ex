@@ -4,9 +4,7 @@ defmodule FindSiteIcon.HTMLFetcher do
   alias FindSiteIcon.Util.HTTPUtils
 
   def fetch_html(url) do
-    with {:ok, 200, _headers, client_ref} <-
-           HTTPUtils.get(url),
-         {:ok, html} <- HTTPUtils.body(client_ref) do
+    with {:ok, %Tesla.Env{status: 200, body: html}} <- HTTPUtils.do_get(url) do
       {:ok, html}
     end
   end

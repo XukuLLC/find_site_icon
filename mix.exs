@@ -43,7 +43,9 @@ defmodule FindSiteIcon.MixProject do
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
       {:meeseeks, "~> 0.15.1"},
       {:mock, "~> 0.3.6"},
-      {:hackney, "~> 1.17"}
+      {:castore, "~> 0.1.0"},
+      {:tesla, "~> 1.4.0"},
+      {:mint, "~> 1.0"}
     ]
   end
 

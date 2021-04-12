@@ -2,24 +2,32 @@ defmodule FindSiteIcon.Util.HTTPUtils do
   @moduledoc """
   Simple wrapper over our http library
   """
+
+  use Tesla
+
+  adapter(Tesla.Adapter.Mint)
+
+  plug(Tesla.Middleware.FollowRedirects)
+
   @timeout 30_000
-  def get(url, headers \\ [], opts \\ []) do
-    :hackney.get(
+
+  def do_get(url, headers \\ [], opts \\ []) do
+    get(
       url,
-      headers,
-      "",
-      opts ++ [follow_redirect: true, timeout: @timeout, recv_timeout: @timeout]
+      opts: [adapter: merged_options(opts)],
+      headers: headers
     )
   end
 
-  def head(url, headers \\ [], opts \\ []) do
-    :hackney.head(
+  def do_head(url, headers \\ [], opts \\ []) do
+    head(
       url,
-      headers,
-      "",
-      opts ++ [follow_redirect: true, timeout: @timeout, recv_timeout: @timeout]
+      opts: [adapter: merged_options(opts)],
+      headers: headers
     )
   end
 
-  def body(ref), do: :hackney.body(ref)
+  defp merged_options(opts) do
+    Keyword.merge([timeout: @timeout], opts)
+  end
 end
