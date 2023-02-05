@@ -22,10 +22,15 @@ defmodule FindSiteIcon.Util.IconUtils do
   def icon_info_for(nil), do: nil
 
   def icon_info_for(icon_url) when is_binary(icon_url) do
-    icon_url
-    |> HTTPUtils.do_get()
-    |> reject_bad_content_type()
-    |> generate_info(icon_url)
+    try do
+      icon_url
+      |> HTTPUtils.do_get()
+      |> reject_bad_content_type()
+      |> generate_info(icon_url)
+    rescue
+      # {:error, Exception.message(err)} || {:error, :unknown}
+      err -> nil
+    end
   end
 
   @spec reject_bad_content_type(any) :: nil | {:ok, %Tesla.Env{}}
