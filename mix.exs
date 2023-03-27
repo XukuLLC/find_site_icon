@@ -42,7 +42,7 @@ defmodule FindSiteIcon.MixProject do
       {:credo, "~> 1.6.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
       {:meeseeks, "~> 0.16.1"},
-      {:meeseeks_html5ever, "~> 0.14.0", override: true},
+      {:meeseeks_html5ever, "~> 0.14.3", override: true},
       {:mock, "~> 0.3.6"},
       {:castore, "~> 0.1.0"},
       {:tesla, "~> 1.4.0"},
