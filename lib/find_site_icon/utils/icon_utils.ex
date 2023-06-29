@@ -29,7 +29,7 @@ defmodule FindSiteIcon.Util.IconUtils do
       |> generate_info(icon_url)
     rescue
       # {:error, Exception.message(err)} || {:error, :unknown}
-      err -> nil
+      _err -> nil
     end
   end
 
