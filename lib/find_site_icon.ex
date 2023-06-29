@@ -99,7 +99,7 @@ defmodule FindSiteIcon do
       url |> URI.parse() |> Map.put(:path, nil) |> Map.put(:query, nil) |> URI.to_string()
 
     html =
-      if String.valid?(html) or base_url == url do
+      if (not is_nil(html) and String.valid?(html)) or base_url == url do
         html
       else
         fetch_html(base_url)
@@ -114,7 +114,7 @@ defmodule FindSiteIcon do
     # with converting the string to simple latin1 format. If some character is
     # unrecognised, that's fine. The only time that'll be an issue is when the
     # character is in a link tag, and that is not something we're likely to ever see.
-    if String.valid?(html) do
+    if not is_nil(html) and String.valid?(html) do
       html
     else
       try do

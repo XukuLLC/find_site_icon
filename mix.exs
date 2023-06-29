@@ -12,7 +12,7 @@ defmodule FindSiteIcon.MixProject do
       name: "FindSiteIcon",
       app: :find_site_icon,
       version: @version,
-      elixir: "~> 1.11",
+      elixir: "~> 1.15.0",
       elixirc_paths: elixirc_paths(Mix.env()),
       package: package(),
       source_url: @url,
@@ -39,14 +39,14 @@ defmodule FindSiteIcon.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:credo, "~> 1.6.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.23", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.29.4", only: :dev, runtime: false},
       {:meeseeks, "~> 0.17.0"},
       {:meeseeks_html5ever, "~> 0.14.3"},
-      {:mock, "~> 0.3.6"},
-      {:castore, "~> 0.1.0"},
-      {:tesla, "~> 1.4.0"},
-      {:mint, "~> 1.0"}
+      {:mock, "~> 0.3.8"},
+      {:castore, "~> 1.0.3"},
+      {:tesla, "~> 1.7.0"},
+      {:mint, "~> 1.5.1"}
     ]
   end
 
