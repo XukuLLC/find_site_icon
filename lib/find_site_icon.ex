@@ -92,14 +92,14 @@ defmodule FindSiteIcon do
   end
 
   defp usable_html(url, html) do
-    html = html || fetch_html(url)
+    html = is_binary(html) && html || fetch_html(url)
 
     # We try to fetch the base url instead of the path if there is no valid html in the path
     base_url =
       url |> URI.parse() |> Map.put(:path, nil) |> Map.put(:query, nil) |> URI.to_string()
 
     html =
-      if (not is_nil(html) and String.valid?(html)) or base_url == url do
+      if (is_binary(html) and String.valid?(html)) or base_url == url do
         html
       else
         fetch_html(base_url)
@@ -114,7 +114,7 @@ defmodule FindSiteIcon do
     # with converting the string to simple latin1 format. If some character is
     # unrecognised, that's fine. The only time that'll be an issue is when the
     # character is in a link tag, and that is not something we're likely to ever see.
-    if not is_nil(html) and String.valid?(html) do
+    if is_binary(html) and String.valid?(html) do
       html
     else
       try do

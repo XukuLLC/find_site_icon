@@ -5,8 +5,6 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   use Tesla
 
-  adapter(Tesla.Adapter.Mint)
-
   plug(Tesla.Middleware.FollowRedirects)
 
   @timeout 30_000
