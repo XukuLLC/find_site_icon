@@ -45,7 +45,7 @@ defmodule FindSiteIcon.MixProject do
       {:meeseeks_html5ever, "~> 0.14.3"},
       {:mock, "~> 0.3.8"},
       {:castore, "~> 1.0.3"},
-      {:tesla, "~> 1.9.0"},
+      {:tesla, "~> 1.11.0"},
       {:mint, "~> 1.6.0"}
     ]
   end
