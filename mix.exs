@@ -41,11 +41,11 @@ defmodule FindSiteIcon.MixProject do
     [
       {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38.2", only: :dev, runtime: false},
-      {:meeseeks, "~> 0.17.0"},
-      {:meeseeks_html5ever, "~> 0.14.3"},
+      {:meeseeks, "~> 0.18.0"},
+      {:meeseeks_html5ever, "~> 0.15.0"},
       {:mock, "~> 0.3.8"},
       {:castore, "~> 1.0.14"},
-      {:tesla, "~> 1.13.0"},
+      {:tesla, "~> 1.14.2"},
       {:mint, "~> 1.7.0"}
     ]
   end
