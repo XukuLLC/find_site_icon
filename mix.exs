@@ -39,12 +39,12 @@ defmodule FindSiteIcon.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.32", only: :dev, runtime: false},
+      {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.38.2", only: :dev, runtime: false},
       {:meeseeks, "~> 0.17.0"},
       {:meeseeks_html5ever, "~> 0.14.3"},
       {:mock, "~> 0.3.8"},
-      {:castore, "~> 1.0.3"},
+      {:castore, "~> 1.0.14"},
       {:tesla, "~> 1.13.0"},
       {:mint, "~> 1.7.0"}
     ]
