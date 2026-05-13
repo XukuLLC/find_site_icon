@@ -1,7 +1,8 @@
 defmodule FindSiteIcon.MixProject do
+  @moduledoc false
   use Mix.Project
 
-  @version "0.5.4"
+  @version "1.0.0"
   @url "https://github.com/XukuLLC/find_site_icon"
   @maintainers [
     "Neil Berkman"
@@ -12,7 +13,7 @@ defmodule FindSiteIcon.MixProject do
       name: "FindSiteIcon",
       app: :find_site_icon,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.17 or ~> 1.18 or ~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       package: package(),
       source_url: @url,
@@ -20,7 +21,17 @@ defmodule FindSiteIcon.MixProject do
       description: "Finds a large icon for a website given a URL.",
       homepage_url: @url,
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: docs(),
+      aliases: aliases()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        precommit: :test
+      ]
     ]
   end
 
@@ -40,13 +51,38 @@ defmodule FindSiteIcon.MixProject do
   defp deps do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:meeseeks, "~> 0.18"},
       {:meeseeks_html5ever, "~> 0.15"},
-      {:mock, "~> 0.3"},
-      {:castore, "~> 1.0"},
-      {:tesla, "~> 1.15"},
-      {:mint, "~> 1.7"}
+      {:bypass, "~> 2.1", only: :test},
+      {:mock, "~> 0.3", only: :test},
+      {:mix_test_watch, "~> 1.4", only: :dev, runtime: false},
+      {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
+      {:req, "~> 0.5"}
+    ]
+  end
+
+  defp aliases do
+    [
+      precommit: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "credo --strict",
+        "test"
+      ]
+    ]
+  end
+
+  defp docs do
+    [
+      extras: [
+        "CHANGELOG.md",
+        "README.md"
+      ],
+      main: "readme",
+      source_ref: "v#{@version}",
+      source_url: @url
     ]
   end
 
@@ -54,8 +90,10 @@ defmodule FindSiteIcon.MixProject do
     [
       maintainers: @maintainers,
       licenses: ["MIT"],
-      links: %{github: @url},
-      files: ~w(lib) ++ ~w(LICENSE mix.exs README.md)
+      links: %{
+        "GitHub" => @url
+      },
+      files: ~w(lib) ++ ~w(CHANGELOG.md LICENSE mix.exs README.md)
     ]
   end
 end

@@ -18,11 +18,11 @@ defmodule FindSiteIcon.Cache do
     host = extract_host(url)
 
     case :ets.lookup(@ets_table, host) do
-      [{^host, %IconInfo{url: icon_url}}] = [{^host, stored_icon_info}] ->
+      [{^host, %IconInfo{url: icon_url} = stored_icon_info}] ->
         if stored_icon_valid?(stored_icon_info, url) do
           icon_url
         else
-          update(url, nil)
+          delete(url)
           nil
         end
 
@@ -39,10 +39,13 @@ defmodule FindSiteIcon.Cache do
 
   def update(_url, _), do: nil
 
-  defp stored_icon_valid?(
-         %IconInfo{url: icon_url, expiration_timestamp: expiration_timestamp},
-         url
-       ) do
+  def delete(url) when is_binary(url) do
+    url
+    |> extract_host()
+    |> then(&:ets.delete(@ets_table, &1))
+  end
+
+  defp stored_icon_valid?(%IconInfo{expiration_timestamp: expiration_timestamp, url: icon_url}, url) do
     if IconUtils.unexpired?(expiration_timestamp) do
       true
     else

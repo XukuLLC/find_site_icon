@@ -1,11 +1,11 @@
 defmodule FindSiteIconTest do
   use ExUnit.Case, async: true
 
+  import Mock
+
   alias FindSiteIcon.{Cache, HTMLFetcher, IconInfo}
   alias FindSiteIcon.Fixtures.FindSiteIconFixtures
   alias FindSiteIcon.Util.IconUtils
-
-  import Mock
 
   test "finds the site icon when cache is populated" do
     url = "https://www.nytimes.com/live/2021/01/03/us/joe-biden-trump"
@@ -20,6 +20,7 @@ defmodule FindSiteIconTest do
     end
   end
 
+  @tag :external
   test "A bunch of common and peculiar websites, we should be able to fetch their icons" do
     websites = [
       "https://www.washingtonpost.com/",
@@ -40,6 +41,22 @@ defmodule FindSiteIconTest do
       {:exit, :timeout} -> assert true
       _ -> assert false, "Failed to fetch an icon"
     end)
+  end
+
+  test "timeout caps the whole icon lookup" do
+    url = "https://www.nytimes.com"
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end},
+      {HTMLFetcher, [],
+       fetch_html: fn
+         ^url, [timeout: 1] ->
+           Process.sleep(50)
+           {:ok, ""}
+       end}
+    ]) do
+      assert FindSiteIcon.find_icon(url, timeout: 1) == {:error, "Timed out fetching icon"}
+    end
   end
 
   describe "finds the site icon when cache is empty" do
@@ -63,7 +80,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -92,7 +109,7 @@ defmodule FindSiteIconTest do
         {IconUtils, [],
          icon_info_for: fn
            ^icon_url ->
-             %IconInfo{url: icon_url, size: 1234}
+             %IconInfo{size: 1234, url: icon_url}
 
            _ ->
              nil
@@ -122,7 +139,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -150,7 +167,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -178,7 +195,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -206,7 +223,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -231,7 +248,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -322,7 +339,7 @@ defmodule FindSiteIconTest do
          icon_info_for: fn
            # Icon url is not one of the common urls, so it should not match with any
            # automatically merged icon location.
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -353,7 +370,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^base_url -> {:ok, base_url_html} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -377,7 +394,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn _ -> {:ok, invalid_html_binary} end},
         {IconUtils, [],
          icon_info_for: fn
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -414,7 +431,7 @@ defmodule FindSiteIconTest do
          icon_info_for: fn
            # Icon url is not one of the common urls, so it should not match with any
            # automatically merged icon location.
-           ^icon_url -> %IconInfo{url: icon_url, size: 1234}
+           ^icon_url -> %IconInfo{size: 1234, url: icon_url}
            _ -> nil
          end}
       ]) do
@@ -440,7 +457,7 @@ defmodule FindSiteIconTest do
         {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
         {IconUtils, [],
          icon_info_for: fn
-           icon_url -> %IconInfo{url: icon_url, size: 0}
+           icon_url -> %IconInfo{size: 0, url: icon_url}
          end}
       ]) do
         assert {:error, _msg} = FindSiteIcon.find_icon(url)
@@ -472,13 +489,13 @@ defmodule FindSiteIconTest do
          icon_info_for: fn
            # Handle the default merge paths we always merge
            ^png_icon_url ->
-             %IconInfo{url: png_icon_url, size: 1234}
+             %IconInfo{size: 1234, url: png_icon_url}
 
            ^jpeg_icon_url ->
-             %IconInfo{url: jpeg_icon_url, size: 1234}
+             %IconInfo{size: 1234, url: jpeg_icon_url}
 
            any_url ->
-             %IconInfo{url: any_url, size: 123}
+             %IconInfo{size: 123, url: any_url}
          end}
       ]) do
         assert FindSiteIcon.find_icon(url) == {:ok, jpeg_icon_url}
@@ -506,7 +523,7 @@ defmodule FindSiteIconTest do
         {IconUtils, [],
          icon_info_for: fn
            ^bad_url ->
-             %IconInfo{url: bad_url, size: 1234}
+             %IconInfo{size: 1234, url: bad_url}
 
            _ ->
              nil
@@ -528,7 +545,7 @@ defmodule FindSiteIconTest do
         {IconUtils, [],
          icon_info_for: fn
            ^icon_url ->
-             %IconInfo{url: icon_url, size: 1234}
+             %IconInfo{size: 1234, url: icon_url}
 
            _ ->
              nil
