@@ -77,12 +77,15 @@ defmodule FindSiteIcon.MixProject do
   defp docs do
     [
       extras: [
-        "CHANGELOG.md",
-        "README.md"
+        "README.md",
+        "CHANGELOG.md"
       ],
       main: "readme",
       source_ref: "v#{@version}",
-      source_url: @url
+      source_url: @url,
+      groups_for_extras: [
+        Changelog: ~r/CHANGELOG\.md/
+      ]
     ]
   end
 
@@ -91,6 +94,7 @@ defmodule FindSiteIcon.MixProject do
       maintainers: @maintainers,
       licenses: ["MIT"],
       links: %{
+        "Changelog" => "https://hexdocs.pm/find_site_icon/changelog.html",
         "GitHub" => @url
       },
       files: ~w(lib) ++ ~w(CHANGELOG.md LICENSE mix.exs README.md)
