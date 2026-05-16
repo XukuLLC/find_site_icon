@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 - 2026-05-16
+
+### Fixed
+
+- Restored v0.x behavior of probing all candidate icon URLs by default. v1.0.0 accidentally capped candidates at 20 unless callers overrode `:max_icons`.
+- Fixed header parsing for Req responses, which store headers as a map of header names to value lists.
+- Fall back to GET when a HEAD response succeeds but reports a non-image content type or zero content length.
+
 ## 1.0.0 - 2026-05-13
 
 ### Changed

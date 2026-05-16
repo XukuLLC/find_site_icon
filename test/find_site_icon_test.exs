@@ -59,6 +59,71 @@ defmodule FindSiteIconTest do
     end
   end
 
+  test "probes all candidate icons by default" do
+    url = "https://www.nytimes.com"
+
+    bad_links =
+      1..25
+      |> Enum.map_join("\n", fn index -> ~s(<link rel="icon" href="/bad-#{index}.png"/>) end)
+
+    icon_relative_url = "/valid-after-many-icons.png"
+    icon_url = url <> icon_relative_url
+
+    html = """
+    <html>
+      <head>
+        #{bad_links}
+        <link rel="icon" href="#{icon_relative_url}"/>
+      </head>
+    </html>
+    """
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+      {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+      {IconUtils, [],
+       icon_info_for: fn
+         ^icon_url -> %IconInfo{size: 1234, url: icon_url}
+         _ -> nil
+       end}
+    ]) do
+      assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
+    end
+  end
+
+  test "max_icons can still cap candidate icon probes" do
+    url = "https://www.nytimes.com"
+
+    bad_links =
+      1..25
+      |> Enum.map_join("\n", fn index -> ~s(<link rel="icon" href="/bad-#{index}.png"/>) end)
+
+    icon_relative_url = "/valid-after-many-icons.png"
+    icon_url = url <> icon_relative_url
+
+    html = """
+    <html>
+      <head>
+        #{bad_links}
+        <link rel="icon" href="#{icon_relative_url}"/>
+      </head>
+    </html>
+    """
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+      {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+      {IconUtils, [],
+       icon_info_for: fn
+         ^icon_url -> %IconInfo{size: 1234, url: icon_url}
+         _ -> nil
+       end}
+    ]) do
+      assert FindSiteIcon.find_icon(url, max_icons: 20) ==
+               {:error, "Could not find a valid icon"}
+    end
+  end
+
   describe "finds the site icon when cache is empty" do
     test "link tags present and hold largest icon in favicon, it'll ignore favicon.ico" do
       icon_relative_url = "/favicon-1920831098fa0df09sdf8a09sd8f.ico"

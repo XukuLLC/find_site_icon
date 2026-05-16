@@ -53,7 +53,7 @@ FindSiteIcon.find_icon("https://example.com", timeout: 3_000)
 | `:timeout` | Caps the whole lookup and applies the same timeout to internal HTTP requests. |
 | `:http_options` | Passes Req options to the internal HTTP client. |
 | `:max_concurrency` | Limits concurrent icon probes. Defaults to `8`. |
-| `:max_icons` | Limits how many candidate icon URLs are probed. Defaults to `20`. |
+| `:max_icons` | Limits how many candidate icon URLs are probed. Defaults to no limit. |
 
 ## What It Checks
 

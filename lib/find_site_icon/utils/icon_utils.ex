@@ -36,11 +36,19 @@ defmodule FindSiteIcon.Util.IconUtils do
   defp fetch_icon_headers(icon_url, opts) do
     case HTTPUtils.do_head(icon_url, [], opts) do
       {:ok, %Req.Response{status: status}} = response when status in 200..299 ->
-        response
+        if usable_head_response?(response) do
+          response
+        else
+          HTTPUtils.do_get(icon_url, [], opts)
+        end
 
       _ ->
         HTTPUtils.do_get(icon_url, [], opts)
     end
+  end
+
+  defp usable_head_response?({:ok, %Req.Response{headers: headers}} = response) do
+    reject_bad_content_type(response) && extract_header(headers, "content-length") != "0"
   end
 
   @spec reject_bad_content_type(any) :: nil | {:ok, Req.Response.t()}
@@ -65,7 +73,13 @@ defmodule FindSiteIcon.Util.IconUtils do
 
   def generate_info(nil, _icon_url), do: nil
 
-  @spec extract_header([{binary, binary}], binary) :: binary | nil
+  @spec extract_header([{binary, binary}] | map, binary) :: binary | nil
+  def extract_header(headers, header_name) when is_map(headers) and is_binary(header_name) do
+    headers
+    |> Map.get(String.downcase(header_name))
+    |> header_value()
+  end
+
   def extract_header(headers, header_name) when is_list(headers) and is_binary(header_name) do
     case Enum.find(headers, fn
            {key, _value} -> String.downcase(key) == header_name
@@ -77,6 +91,10 @@ defmodule FindSiteIcon.Util.IconUtils do
   end
 
   def extract_header(_, _), do: nil
+
+  defp header_value([value | _rest]) when is_binary(value), do: value
+  defp header_value(value) when is_binary(value), do: value
+  defp header_value(_), do: nil
 
   @fourteen_days_in_seconds 14 * 24 * 3600
 

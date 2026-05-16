@@ -35,19 +35,23 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
              {:ok, "<html></html>"}
   end
 
-  test "icon_info_for/2 accepts successful HEAD responses without downloading the body" do
+  test "icon_info_for/2 falls back to GET when HEAD reports zero content length" do
     bypass = Bypass.open()
 
     Bypass.expect_once(bypass, "HEAD", "/icon.png", fn conn ->
       conn
-      |> put_resp_header("content-length", "512")
       |> put_resp_header("content-type", "image/png")
       |> resp(200, "")
     end)
 
+    Bypass.expect_once(bypass, "GET", "/icon.png", fn conn ->
+      conn
+      |> put_resp_header("content-type", "image/png")
+      |> resp(200, String.duplicate("x", 512))
+    end)
+
     icon_url = "http://localhost:#{bypass.port}/icon.png"
 
-    assert %IconInfo{size: nil, url: ^icon_url} =
-             IconUtils.icon_info_for(icon_url, timeout: 1_000)
+    assert %IconInfo{url: ^icon_url} = IconUtils.icon_info_for(icon_url, timeout: 1_000)
   end
 end

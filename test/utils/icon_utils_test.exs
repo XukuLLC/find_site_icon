@@ -46,6 +46,8 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
     assert IconUtils.extract_header([{"Cache-Control", "max=0"}], "content-length") == nil
     assert IconUtils.extract_header([{"content-length", "123"}], "content-length") == "123"
     assert IconUtils.extract_header([{"Content-Length", "123"}], "content-length") == "123"
+    assert IconUtils.extract_header(%{"content-length" => ["123"]}, "content-length") == "123"
+    assert IconUtils.extract_header(%{"content-length" => "123"}, "content-length") == "123"
   end
 
   test "reject_bad_content_type/1" do
@@ -112,6 +114,36 @@ defmodule FindSiteIcon.Util.IconUtilsTest do
         assert %FindSiteIcon.IconInfo{} = IconUtils.icon_info_for("random_url")
 
         assert_called(HTTPUtils.do_head("random_url", [], []))
+      end
+    end
+
+    test "falls back to GET when HEAD reports a non-image response" do
+      with_mock HTTPUtils,
+        do_head: fn _url, _headers, _opts ->
+          {:ok, %Req.Response{headers: %{"content-type" => ["text/html"]}, status: 200}}
+        end,
+        do_get: fn _url, _headers, _opts ->
+          {:ok, %Req.Response{headers: %{"content-type" => ["image/png"]}, status: 200}}
+        end do
+        assert %FindSiteIcon.IconInfo{} = IconUtils.icon_info_for("random_url")
+
+        assert_called(HTTPUtils.do_head("random_url", [], []))
+        assert_called(HTTPUtils.do_get("random_url", [], []))
+      end
+    end
+
+    test "falls back to GET when HEAD reports zero content length" do
+      with_mock HTTPUtils,
+        do_head: fn _url, _headers, _opts ->
+          {:ok, %Req.Response{headers: %{"content-length" => ["0"], "content-type" => ["image/png"]}, status: 200}}
+        end,
+        do_get: fn _url, _headers, _opts ->
+          {:ok, %Req.Response{headers: %{"content-length" => ["512"], "content-type" => ["image/png"]}, status: 200}}
+        end do
+        assert %FindSiteIcon.IconInfo{size: 512} = IconUtils.icon_info_for("random_url")
+
+        assert_called(HTTPUtils.do_head("random_url", [], []))
+        assert_called(HTTPUtils.do_get("random_url", [], []))
       end
     end
   end

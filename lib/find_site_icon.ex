@@ -13,7 +13,7 @@ defmodule FindSiteIcon do
           | {:html, binary}
           | {:http_options, keyword}
           | {:max_concurrency, pos_integer}
-          | {:max_icons, pos_integer}
+          | {:max_icons, pos_integer | :infinity}
           | {:timeout, timeout}
 
   @known_icon_locations [
@@ -25,7 +25,7 @@ defmodule FindSiteIcon do
   @supported_image_extensions [".png", ".jpg", ".jpeg", ".webp", ".svg"]
   @default_icon_fetch_timeout 10_000
   @default_max_concurrency 8
-  @default_max_icons 20
+  @default_max_icons :infinity
 
   @spec find_icon(binary, [find_icon_option]) :: {:error, binary} | {:ok, binary}
   @doc """
@@ -38,7 +38,7 @@ defmodule FindSiteIcon do
   * :timeout -> caps the whole icon lookup and applies the same timeout to HTTP requests.
   * :http_options -> passes Req options to the internal HTTP client.
   * :max_concurrency -> limits concurrent icon probes. Defaults to 8.
-  * :max_icons -> limits how many candidate icon URLs will be probed. Defaults to 20.
+  * :max_icons -> limits how many candidate icon URLs will be probed. Defaults to no limit.
 
   ## Examples
 
@@ -113,7 +113,7 @@ defmodule FindSiteIcon do
     |> filter_invalid_image_formats()
     |> relative_to_absolute_urls(url)
     |> Enum.uniq()
-    |> Enum.take(max_icons(opts))
+    |> limit_icons(opts)
     |> fetch_icons(opts)
     |> filter_empty_and_small_icons()
     |> largest_icon()
@@ -341,6 +341,14 @@ defmodule FindSiteIcon do
 
   defp max_icons(opts) do
     Keyword.get(opts, :max_icons, @default_max_icons)
+  end
+
+  defp limit_icons(urls, opts) do
+    case max_icons(opts) do
+      :infinity -> urls
+      max_icons when is_integer(max_icons) and max_icons > 0 -> Enum.take(urls, max_icons)
+      _ -> urls
+    end
   end
 
   defp link_tags_to_urls(tags) when is_list(tags) do
