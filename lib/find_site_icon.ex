@@ -20,9 +20,10 @@ defmodule FindSiteIcon do
     "/apple-touch-icon.png",
     "/apple-touch-icon-precomposed.png",
     "/favicon-192x192.png",
-    "/favicon.png"
+    "/favicon.png",
+    "/favicon.ico"
   ]
-  @supported_image_extensions [".png", ".jpg", ".jpeg", ".webp", ".svg"]
+  @supported_image_extensions [".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico"]
   @default_icon_fetch_timeout 10_000
   @default_max_concurrency 8
   @default_max_icons :infinity
@@ -191,6 +192,7 @@ defmodule FindSiteIcon do
   @image_size_considered_for_nil 256
   # The values here are based on heuristics and can/should be updated based on new info.
   @image_size_for_nil %{
+    ico: @image_size_considered_for_nil,
     invalid: 0,
     jpeg: @image_size_considered_for_nil,
     png: 2 * @image_size_considered_for_nil,
@@ -198,6 +200,7 @@ defmodule FindSiteIcon do
     webp: @image_size_considered_for_nil
   }
   @image_format_size_multiplier_for_comparison %{
+    ico: 0.75,
     invalid: 0,
     jpeg: 1.25,
     png: 1,
@@ -211,15 +214,50 @@ defmodule FindSiteIcon do
     # * JPEG is compressed
     # So, if a JPEG is the same size as a PNG, its resolution must be higher.
     # All we care about is the highest resolution image.
-    Enum.max_by(icon_infos, fn
-      %IconInfo{size: size, url: url} ->
-        format = icon_format(url)
+    icon_infos
+    |> reject_empty_icons()
+    |> choose_valid_icons()
+    |> case do
+      [] -> nil
+      valid_icon_infos -> Enum.max_by(valid_icon_infos, &icon_score/1)
+    end
+  end
 
-        size_to_consider = size || @image_size_for_nil[format]
+  defp icon_score(%IconInfo{size: size, url: url}) do
+    format = icon_format(url)
+    size_to_consider = size || @image_size_for_nil[format]
 
-        size_to_consider * @image_format_size_multiplier_for_comparison[format]
+    size_to_consider * @image_format_size_multiplier_for_comparison[format]
+  end
+
+  defp choose_valid_icons([]), do: []
+
+  defp choose_valid_icons(icon_infos) do
+    large_icons = Enum.filter(icon_infos, &large_enough_icon?/1)
+
+    if Enum.empty?(large_icons) do
+      icon_infos
+    else
+      large_icons
+    end
+  end
+
+  defp reject_empty_icons(icon_infos) do
+    Enum.reject(icon_infos, fn
+      %IconInfo{size: 0} -> true
+      _ -> false
     end)
   end
+
+  defp large_enough_icon?(%IconInfo{size: nil}), do: true
+
+  defp large_enough_icon?(%IconInfo{size: size, url: url}) when is_integer(size) do
+    format = icon_format(url)
+
+    size >= @image_size_for_nil[format]
+  end
+
+  defp large_enough_icon?(_icon_info), do: false
 
   defp icon_format(icon_url) do
     path =
@@ -230,6 +268,7 @@ defmodule FindSiteIcon do
       |> String.downcase()
 
     cond do
+      String.ends_with?(path, ".ico") -> :ico
       String.ends_with?(path, ".png") -> :png
       String.ends_with?(path, ".jpg") || String.ends_with?(path, ".jpeg") -> :jpeg
       String.ends_with?(path, ".svg") -> :svg
@@ -252,21 +291,8 @@ defmodule FindSiteIcon do
   end
 
   defp filter_empty_and_small_icons(icon_infos) when is_list(icon_infos) do
-    # We'll remove icon infos with size == 0 here
-    Enum.filter(icon_infos, fn
-      %IconInfo{size: nil} ->
-        true
-
-      %IconInfo{size: size, url: url} when is_integer(size) ->
-        format = icon_format(url)
-
-        minimum_acceptable_size = @image_size_for_nil[format]
-
-        size >= minimum_acceptable_size
-
-      _ ->
-        false
-    end)
+    # Keep old preference for larger icons, but do not discard the only valid favicon a site has.
+    choose_valid_icons(reject_empty_icons(icon_infos))
   end
 
   defp filter_invalid_image_formats(urls) when is_list(urls) do

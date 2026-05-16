@@ -58,8 +58,8 @@ FindSiteIcon.find_icon("https://example.com", timeout: 3_000)
 ## What It Checks
 
 - HTML icon links: `apple-touch-icon`, `apple-touch-icon-precomposed`, `shortcut icon`, and `icon`.
-- Common fallback locations such as `/apple-touch-icon.png` and `/favicon.png`.
-- PNG, JPEG, WebP, and SVG icon URLs.
+- Common fallback locations such as `/apple-touch-icon.png`, `/favicon.png`, and `/favicon.ico`.
+- PNG, JPEG, WebP, SVG, and ICO icon URLs.
 - Response metadata with a HEAD-first request, falling back to GET when needed.
 - `cache-control: max-age` for cache expiration when the server provides it.
 

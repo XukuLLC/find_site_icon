@@ -125,7 +125,7 @@ defmodule FindSiteIconTest do
   end
 
   describe "finds the site icon when cache is empty" do
-    test "link tags present and hold largest icon in favicon, it'll ignore favicon.ico" do
+    test "link tags present and hold only valid icon in favicon.ico" do
       icon_relative_url = "/favicon-1920831098fa0df09sdf8a09sd8f.ico"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
@@ -149,7 +149,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert {:error, _} = FindSiteIcon.find_icon(url)
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -240,7 +240,7 @@ defmodule FindSiteIconTest do
       end
     end
 
-    test "link tags present but all invalid and yet icon present in undefined favicon.ico, will be ignored" do
+    test "link tags present but all invalid and yet icon present in fallback favicon.ico" do
       icon_relative_url = "/favicon.ico"
       url = "https://www.nytimes.com"
       icon_url = url <> icon_relative_url
@@ -264,7 +264,7 @@ defmodule FindSiteIconTest do
            _ -> nil
          end}
       ]) do
-        assert {:error, _} = FindSiteIcon.find_icon(url)
+        assert FindSiteIcon.find_icon(url) == {:ok, icon_url}
       end
     end
 
@@ -526,6 +526,32 @@ defmodule FindSiteIconTest do
          end}
       ]) do
         assert {:error, _msg} = FindSiteIcon.find_icon(url)
+      end
+    end
+
+    test "returns a small icon when every candidate is below the preferred size" do
+      icon_relative_url = "/small-favicon.png"
+      url = "https://www.nytimes.com"
+      icon_url = url <> icon_relative_url
+
+      html = """
+      <html>
+        <head>
+          <link rel="icon" href="#{icon_relative_url}"/>
+        </head>
+      </html>
+      """
+
+      with_mocks([
+        {Cache, [], get: fn _url -> nil end, update: fn _url, _icon_url -> nil end},
+        {HTMLFetcher, [], fetch_html: fn ^url -> {:ok, html} end},
+        {IconUtils, [],
+         icon_info_for: fn
+           ^icon_url -> %IconInfo{size: 100, url: icon_url}
+           _ -> nil
+         end}
+      ]) do
+        assert {:ok, ^icon_url} = FindSiteIcon.find_icon(url)
       end
     end
 
