@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Set a finite default `pool_max_idle_time` (30 seconds) for the internal Req/Finch HTTP client so idle connections release their file descriptors. Without this, processing large lists of distinct hosts could exhaust the per-process open-file limit and silently truncate results or crash the BEAM. ([#15](https://github.com/XukuLLC/find_site_icon/issues/15))
+
 ## 1.0.1 - 2026-05-16
 
 ### Fixed

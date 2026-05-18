@@ -5,6 +5,9 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   @timeout 30_000
   @user_agent "find_site_icon (+https://github.com/XukuLLC/find_site_icon)"
+  # Terminate idle Finch pools after this many milliseconds so file
+  # descriptors are reclaimed when probing many distinct hosts. See issue #15.
+  @pool_max_idle_time 30_000
 
   @spec new(keyword) :: Req.Request.t()
   def new(opts \\ []) when is_list(opts) do
@@ -13,6 +16,7 @@ defmodule FindSiteIcon.Util.HTTPUtils do
     Req.new(
       connect_options: [timeout: @timeout],
       headers: [{"user-agent", @user_agent}],
+      pool_max_idle_time: @pool_max_idle_time,
       receive_timeout: @timeout,
       redirect: true,
       retry: false
