@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Set a finite default `pool_max_idle_time` (30 seconds) for the internal Req/Finch HTTP client so idle connections release their file descriptors. Without this, processing large lists of distinct hosts could exhaust the per-process open-file limit and silently truncate results or crash the BEAM. ([#15](https://github.com/XukuLLC/find_site_icon/issues/15))
+
+### Added
+
+- New `:pool_max_idle_time` option on `FindSiteIcon.find_icon/2` so callers can override the default 30-second Finch idle-pool timeout per call. Accepts a positive integer in milliseconds or `:infinity` (which restores Req's pre-1.0.2 behaviour of keeping idle pools alive forever).
+
 ## 1.0.1 - 2026-05-16
 
 ### Fixed
