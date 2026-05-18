@@ -54,6 +54,7 @@ FindSiteIcon.find_icon("https://example.com", timeout: 3_000)
 | `:http_options` | Passes Req options to the internal HTTP client. |
 | `:max_concurrency` | Limits concurrent icon probes. Defaults to `8`. |
 | `:max_icons` | Limits how many candidate icon URLs are probed. Defaults to no limit. |
+| `:pool_max_idle_time` | Milliseconds before idle Finch socket pools are terminated so file descriptors are reclaimed when probing many distinct hosts. Defaults to `30_000`. Pass `:infinity` to restore Req's pre-1.0.2 behaviour of keeping pools alive forever. |
 
 ## What It Checks
 

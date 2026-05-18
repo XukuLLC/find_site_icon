@@ -59,6 +59,66 @@ defmodule FindSiteIconTest do
     end
   end
 
+  test "pool_max_idle_time can be overridden with an integer" do
+    url = "https://www.nytimes.com"
+    test_pid = self()
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end},
+      {HTMLFetcher, [],
+       fetch_html: fn ^url, http_opts ->
+         send(test_pid, {:http_opts, http_opts})
+         {:ok, "<html></html>"}
+       end},
+      {IconUtils, [], icon_info_for: fn _, _ -> nil end}
+    ]) do
+      FindSiteIcon.find_icon(url, pool_max_idle_time: 5_000)
+
+      assert_received {:http_opts, http_opts}
+      assert Keyword.get(http_opts, :pool_max_idle_time) == 5_000
+    end
+  end
+
+  test "pool_max_idle_time accepts :infinity to disable idle-pool eviction" do
+    url = "https://www.nytimes.com"
+    test_pid = self()
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end},
+      {HTMLFetcher, [],
+       fetch_html: fn ^url, http_opts ->
+         send(test_pid, {:http_opts, http_opts})
+         {:ok, "<html></html>"}
+       end},
+      {IconUtils, [], icon_info_for: fn _, _ -> nil end}
+    ]) do
+      FindSiteIcon.find_icon(url, pool_max_idle_time: :infinity)
+
+      assert_received {:http_opts, http_opts}
+      assert Keyword.get(http_opts, :pool_max_idle_time) == :infinity
+    end
+  end
+
+  test "an explicit :http_options[:pool_max_idle_time] wins over the top-level option default" do
+    url = "https://www.nytimes.com"
+    test_pid = self()
+
+    with_mocks([
+      {Cache, [], get: fn _url -> nil end},
+      {HTMLFetcher, [],
+       fetch_html: fn ^url, http_opts ->
+         send(test_pid, {:http_opts, http_opts})
+         {:ok, "<html></html>"}
+       end},
+      {IconUtils, [], icon_info_for: fn _, _ -> nil end}
+    ]) do
+      FindSiteIcon.find_icon(url, http_options: [pool_max_idle_time: 1_234])
+
+      assert_received {:http_opts, http_opts}
+      assert Keyword.get(http_opts, :pool_max_idle_time) == 1_234
+    end
+  end
+
   test "probes all candidate icons by default" do
     url = "https://www.nytimes.com"
 

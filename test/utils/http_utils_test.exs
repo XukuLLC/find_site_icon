@@ -7,20 +7,25 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
   alias FindSiteIcon.IconInfo
   alias FindSiteIcon.Util.{HTTPUtils, IconUtils}
 
-  test "new/1 sets a finite pool_max_idle_time so idle connections release file descriptors" do
+  test "new/1 defaults pool_max_idle_time to 30_000 so idle connections release file descriptors" do
     # Regression test for issue #15: without this option, Req's Finch pools
     # default to :infinity max idle time, so probing many distinct hosts
     # leaks file descriptors until the OS limit is hit.
     request = HTTPUtils.new()
 
-    assert is_integer(request.options[:pool_max_idle_time])
-    assert request.options[:pool_max_idle_time] > 0
+    assert request.options[:pool_max_idle_time] == 30_000
   end
 
-  test "new/1 allows callers to override pool_max_idle_time" do
+  test "new/1 allows callers to override pool_max_idle_time with an integer" do
     request = HTTPUtils.new(pool_max_idle_time: 5_000)
 
     assert request.options[:pool_max_idle_time] == 5_000
+  end
+
+  test "new/1 allows callers to override pool_max_idle_time with :infinity" do
+    request = HTTPUtils.new(pool_max_idle_time: :infinity)
+
+    assert request.options[:pool_max_idle_time] == :infinity
   end
 
   test "do_get/3 follows redirects and returns response body" do

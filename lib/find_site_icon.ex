@@ -14,6 +14,7 @@ defmodule FindSiteIcon do
           | {:http_options, keyword}
           | {:max_concurrency, pos_integer}
           | {:max_icons, pos_integer | :infinity}
+          | {:pool_max_idle_time, pos_integer | :infinity}
           | {:timeout, timeout}
 
   @known_icon_locations [
@@ -40,6 +41,9 @@ defmodule FindSiteIcon do
   * :http_options -> passes Req options to the internal HTTP client.
   * :max_concurrency -> limits concurrent icon probes. Defaults to 8.
   * :max_icons -> limits how many candidate icon URLs will be probed. Defaults to no limit.
+  * :pool_max_idle_time -> milliseconds before idle Finch socket pools are terminated so
+  file descriptors are reclaimed when probing many distinct hosts. Defaults to 30_000.
+  Pass `:infinity` to restore Req's pre-1.0.2 behaviour of keeping pools alive forever.
 
   ## Examples
 
@@ -346,8 +350,13 @@ defmodule FindSiteIcon do
   end
 
   defp http_options(opts) do
-    http_options = Keyword.get(opts, :http_options, [])
+    opts
+    |> Keyword.get(:http_options, [])
+    |> apply_timeout(opts)
+    |> apply_pool_max_idle_time(opts)
+  end
 
+  defp apply_timeout(http_options, opts) do
     case Keyword.fetch(opts, :timeout) do
       {:ok, timeout} when is_integer(timeout) and timeout >= 0 ->
         Keyword.put_new(http_options, :timeout, timeout)
@@ -356,6 +365,29 @@ defmodule FindSiteIcon do
         http_options
     end
   end
+
+  # The 30_000 ms default lives in `FindSiteIcon.Util.HTTPUtils.new/1`. We
+  # only forward `:pool_max_idle_time` when the caller passed it explicitly,
+  # so the common case still produces an empty http_options list. That way
+  # the internal `HTMLFetcher.fetch_html/1` arity is used when no other HTTP
+  # opts need to be threaded through.
+  defp apply_pool_max_idle_time(http_options, opts) do
+    case Keyword.fetch(opts, :pool_max_idle_time) do
+      {:ok, value} ->
+        if valid_pool_max_idle_time?(value) do
+          Keyword.put_new(http_options, :pool_max_idle_time, value)
+        else
+          http_options
+        end
+
+      :error ->
+        http_options
+    end
+  end
+
+  defp valid_pool_max_idle_time?(:infinity), do: true
+  defp valid_pool_max_idle_time?(value) when is_integer(value) and value > 0, do: true
+  defp valid_pool_max_idle_time?(_), do: false
 
   defp icon_fetch_timeout(opts) do
     Keyword.get(opts, :timeout, @default_icon_fetch_timeout)
