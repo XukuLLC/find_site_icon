@@ -55,8 +55,6 @@ defmodule FindSiteIcon.Cache do
     end
   end
 
-  defp stored_icon_valid?(_, _), do: false
-
   def extract_host(url) when is_binary(url) do
     # path is used in case url is provided without scheme, in which case the host can't be parsed
     %URI{host: host, path: path} = URI.parse(url)
