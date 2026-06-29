@@ -5,6 +5,7 @@
 ### Fixed
 
 - Enabled Req response decompression by default so compressed pages and icons continue to be decoded correctly with Req 0.6+. ([#17](https://github.com/XukuLLC/find_site_icon/issues/17))
+- Declared Elixir 1.20 support in package metadata after adding it to CI.
 
 ## 1.0.2 - 2026-05-18
 
