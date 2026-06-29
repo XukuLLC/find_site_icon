@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 - 2026-06-29
+
+### Fixed
+
+- Enabled Req response decompression by default so compressed pages and icons continue to be decoded correctly with Req 0.6+. ([#17](https://github.com/XukuLLC/find_site_icon/issues/17))
+
 ## 1.0.2 - 2026-05-18
 
 ### Fixed

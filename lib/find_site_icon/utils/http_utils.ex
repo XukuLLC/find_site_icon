@@ -6,6 +6,7 @@ defmodule FindSiteIcon.Util.HTTPUtils do
   callers may override by passing the key explicitly:
 
   * `:timeout` -> applied to both connect and receive timeouts. Defaults to 30s.
+  * `:compressed` -> decompresses encoded response bodies. Defaults to `true`.
   * `:pool_max_idle_time` -> milliseconds before idle Finch socket pools are
     terminated. Defaults to 30s so file descriptors are reclaimed when probing
     many distinct hosts. Pass `:infinity` to keep pools alive forever, which
@@ -22,6 +23,7 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
     Req.new(
       connect_options: [timeout: @timeout],
+      compressed: true,
       headers: [{"user-agent", @user_agent}],
       pool_max_idle_time: @pool_max_idle_time,
       receive_timeout: @timeout,

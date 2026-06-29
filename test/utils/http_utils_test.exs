@@ -16,6 +16,20 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
     assert request.options[:pool_max_idle_time] == 30_000
   end
 
+  test "new/1 defaults compressed to true so Req decompresses encoded responses" do
+    # Regression test for issue #17: Req 0.6 no longer decompresses response
+    # bodies unless :compressed is enabled.
+    request = HTTPUtils.new()
+
+    assert request.options[:compressed] == true
+  end
+
+  test "new/1 allows callers to override compressed" do
+    request = HTTPUtils.new(compressed: false)
+
+    assert request.options[:compressed] == false
+  end
+
   test "new/1 allows callers to override pool_max_idle_time with an integer" do
     request = HTTPUtils.new(pool_max_idle_time: 5_000)
 
