@@ -11,6 +11,14 @@ defmodule FindSiteIcon.Util.HTTPUtils do
     terminated. Defaults to 30s so file descriptors are reclaimed when probing
     many distinct hosts. Pass `:infinity` to keep pools alive forever, which
     was Req's behaviour prior to find_site_icon 1.0.2. See issue #15.
+
+  `:connect_options`, `:inet6` and `:pool_max_idle_time` are folded into a
+  single `:finch` keyword list before the options reach Req. Req 0.7 deprecated
+  top-level `:pool_max_idle_time` in favour of `finch: [pool_max_idle_time:
+  ...]`, and it raises when `:finch` and `:connect_options` are set on the same
+  request, so the two have to travel together. `Req.Finch.pool_options/1` does
+  the translation, which keeps the full `:connect_options` surface working
+  without restating Req's mapping here.
   """
 
   @timeout 30_000
@@ -19,18 +27,13 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   @spec new(keyword) :: Req.Request.t()
   def new(opts \\ []) when is_list(opts) do
-    opts = normalize_options(opts)
-
     Req.new(
-      connect_options: [timeout: @timeout],
       compressed: true,
       headers: [{"user-agent", @user_agent}],
-      pool_max_idle_time: @pool_max_idle_time,
-      receive_timeout: @timeout,
       redirect: true,
       retry: false
     )
-    |> Req.merge(opts)
+    |> Req.merge(normalize_options(opts))
   end
 
   @spec do_get(binary | Req.Request.t(), keyword, keyword) ::
@@ -62,14 +65,31 @@ defmodule FindSiteIcon.Util.HTTPUtils do
   defp normalize_options(opts) do
     {timeout, opts} = Keyword.pop(opts, :timeout, @timeout)
     {connect_timeout, opts} = Keyword.pop(opts, :connect_timeout, timeout)
-
-    connect_options =
-      opts
-      |> Keyword.get(:connect_options, [])
-      |> Keyword.put_new(:timeout, connect_timeout)
+    {connect_options, opts} = Keyword.pop(opts, :connect_options, [])
+    {pool_max_idle_time, opts} = Keyword.pop(opts, :pool_max_idle_time, @pool_max_idle_time)
+    {finch_options, opts} = Keyword.pop(opts, :finch, [])
 
     opts
     |> Keyword.put_new(:receive_timeout, timeout)
-    |> Keyword.put(:connect_options, connect_options)
+    |> Keyword.put(
+      :finch,
+      Keyword.merge(
+        pool_options(opts, connect_options, connect_timeout, pool_max_idle_time),
+        finch_options
+      )
+    )
+  end
+
+  # `:inet6` is read, not popped: Req also consults it when building the
+  # request URI, so it has to stay among the top-level options.
+  defp pool_options(opts, connect_options, connect_timeout, pool_max_idle_time) do
+    opts
+    |> Keyword.take([:inet6])
+    |> Keyword.merge(
+      connect_options: Keyword.put_new(connect_options, :timeout, connect_timeout),
+      pool_max_idle_time: pool_max_idle_time
+    )
+    |> Map.new()
+    |> Req.Finch.pool_options()
   end
 end

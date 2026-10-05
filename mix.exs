@@ -2,7 +2,7 @@ defmodule FindSiteIcon.MixProject do
   @moduledoc false
   use Mix.Project
 
-  @version "1.0.3"
+  @version "1.1.0"
   @url "https://github.com/XukuLLC/find_site_icon"
   @maintainers [
     "Neil Berkman"
@@ -59,7 +59,7 @@ defmodule FindSiteIcon.MixProject do
       {:mock, "~> 0.3", only: :test},
       {:mix_test_watch, "~> 1.4", only: :dev, runtime: false},
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
-      {:req, "~> 0.5"}
+      {:req, "~> 0.7"}
     ]
   end
 

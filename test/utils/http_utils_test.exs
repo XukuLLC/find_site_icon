@@ -1,6 +1,7 @@
 defmodule FindSiteIcon.Util.HTTPUtilsTest do
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureIO
   import Plug.Conn
 
   alias FindSiteIcon.HTMLFetcher
@@ -13,7 +14,54 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
     # leaks file descriptors until the OS limit is hit.
     request = HTTPUtils.new()
 
-    assert request.options[:pool_max_idle_time] == 30_000
+    assert request.options[:finch][:pool_max_idle_time] == 30_000
+  end
+
+  test "new/1 passes the connect timeout through :finch rather than :connect_options" do
+    # Req 0.7 raises when :finch and :connect_options are both set, so the
+    # connect timeout has to travel inside the :finch pool options.
+    request = HTTPUtils.new(timeout: 1_234)
+
+    refute Map.has_key?(request.options, :connect_options)
+    assert request.options[:finch][:conn_opts][:transport_opts][:timeout] == 1_234
+    assert request.options[:receive_timeout] == 1_234
+  end
+
+  test "new/1 still honours a caller-supplied :connect_options" do
+    request = HTTPUtils.new(connect_options: [timeout: 2_000, hostname: "example.com"])
+
+    assert request.options[:finch][:conn_opts][:transport_opts][:timeout] == 2_000
+    assert request.options[:finch][:conn_opts][:hostname] == "example.com"
+  end
+
+  test "new/1 lets callers add Finch options without losing the defaults" do
+    request = HTTPUtils.new(finch: [pool_timeout: 500])
+
+    assert request.options[:finch][:pool_timeout] == 500
+    assert request.options[:finch][:pool_max_idle_time] == 30_000
+  end
+
+  test "new/1 emits no Req deprecation warning" do
+    # Regression test: Req 0.7 deprecated top-level :pool_max_idle_time and
+    # IO.warn/1 attaches a stacktrace to every occurrence, so a single icon
+    # lookup used to flood stderr with dozens of multi-line warnings.
+    stderr = capture_io(:stderr, fn -> HTTPUtils.new() end)
+
+    refute stderr =~ "deprecated"
+  end
+
+  test "do_get/3 emits no Req deprecation warning" do
+    bypass = Bypass.open()
+
+    Bypass.expect_once(bypass, "GET", "/", fn conn -> resp(conn, 200, "ok") end)
+
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:ok, %Req.Response{status: 200}} =
+                 HTTPUtils.do_get("http://localhost:#{bypass.port}/")
+      end)
+
+    refute stderr =~ "deprecated"
   end
 
   test "new/1 defaults compressed to true so Req decompresses encoded responses" do
@@ -33,13 +81,13 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
   test "new/1 allows callers to override pool_max_idle_time with an integer" do
     request = HTTPUtils.new(pool_max_idle_time: 5_000)
 
-    assert request.options[:pool_max_idle_time] == 5_000
+    assert request.options[:finch][:pool_max_idle_time] == 5_000
   end
 
   test "new/1 allows callers to override pool_max_idle_time with :infinity" do
     request = HTTPUtils.new(pool_max_idle_time: :infinity)
 
-    assert request.options[:pool_max_idle_time] == :infinity
+    assert request.options[:finch][:pool_max_idle_time] == :infinity
   end
 
   test "do_get/3 follows redirects and returns response body" do
