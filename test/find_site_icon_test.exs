@@ -1,5 +1,7 @@
 defmodule FindSiteIconTest do
-  use ExUnit.Case, async: true
+  # Mock replaces modules globally (meck), so tests that mock must not run
+  # alongside async tests that call the real modules.
+  use ExUnit.Case, async: false
 
   import Mock
 
