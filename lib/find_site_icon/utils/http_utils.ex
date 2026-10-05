@@ -19,6 +19,16 @@ defmodule FindSiteIcon.Util.HTTPUtils do
   request, so the two have to travel together. `Req.Finch.pool_options/1` does
   the translation, which keeps the full `:connect_options` surface working
   without restating Req's mapping here.
+
+  The defaults above are applied by `new/1` only. `do_get/3` and `do_head/3`
+  translate just the options they are handed, layering them over whatever the
+  request already carries, so passing a prebuilt `t:Req.Request.t/0` keeps its
+  pool settings.
+
+  Callers may also pass `:finch` options directly, which are merged over the
+  computed pool options. `finch: [name: MyFinch]` is taken verbatim and the
+  pool defaults above are not applied, since Req rejects pool options next to
+  a pool name.
   """
 
   @timeout 30_000
@@ -27,13 +37,15 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   @spec new(keyword) :: Req.Request.t()
   def new(opts \\ []) when is_list(opts) do
+    defaults = [timeout: @timeout, pool_max_idle_time: @pool_max_idle_time]
+
     Req.new(
       compressed: true,
       headers: [{"user-agent", @user_agent}],
       redirect: true,
       retry: false
     )
-    |> Req.merge(normalize_options(opts))
+    |> merge_options(Keyword.merge(defaults, opts))
   end
 
   @spec do_get(binary | Req.Request.t(), keyword, keyword) ::
@@ -54,7 +66,7 @@ defmodule FindSiteIcon.Util.HTTPUtils do
 
   defp request(%Req.Request{} = request, headers, opts) do
     request
-    |> Req.merge(normalize_options(opts))
+    |> merge_options(opts)
     |> Req.merge(headers: headers)
   end
 
@@ -62,34 +74,66 @@ defmodule FindSiteIcon.Util.HTTPUtils do
     new(Keyword.merge(opts, url: url, headers: headers))
   end
 
-  defp normalize_options(opts) do
-    {timeout, opts} = Keyword.pop(opts, :timeout, @timeout)
+  # Translates only the options actually present, so merging onto an existing
+  # request never resets a setting the caller did not pass this time.
+  defp merge_options(%Req.Request{} = request, opts) do
+    {timeout, opts} = Keyword.pop(opts, :timeout)
     {connect_timeout, opts} = Keyword.pop(opts, :connect_timeout, timeout)
-    {connect_options, opts} = Keyword.pop(opts, :connect_options, [])
-    {pool_max_idle_time, opts} = Keyword.pop(opts, :pool_max_idle_time, @pool_max_idle_time)
+    {connect_options, opts} = Keyword.pop(opts, :connect_options)
+    {pool_max_idle_time, opts} = Keyword.pop(opts, :pool_max_idle_time)
     {finch_options, opts} = Keyword.pop(opts, :finch, [])
 
-    opts
-    |> Keyword.put_new(:receive_timeout, timeout)
-    |> Keyword.put(
-      :finch,
-      Keyword.merge(
+    opts =
+      if timeout do
+        Keyword.put_new(opts, :receive_timeout, timeout)
+      else
+        opts
+      end
+
+    finch =
+      finch(
+        request.options[:finch] || [],
         pool_options(opts, connect_options, connect_timeout, pool_max_idle_time),
         finch_options
       )
-    )
+
+    Req.merge(request, maybe_put_finch(opts, finch))
   end
+
+  # A caller-supplied pool name owns its pool configuration: Req raises when
+  # pool options sit next to `:name`, so the defaults are not applied.
+  defp finch(current, pool_options, finch_options) do
+    if Keyword.has_key?(finch_options, :name) do
+      finch_options
+    else
+      current |> Keyword.merge(pool_options) |> Keyword.merge(finch_options)
+    end
+  end
+
+  defp maybe_put_finch(opts, []), do: opts
+  defp maybe_put_finch(opts, finch), do: Keyword.put(opts, :finch, finch)
 
   # `:inet6` is read, not popped: Req also consults it when building the
   # request URI, so it has to stay among the top-level options.
   defp pool_options(opts, connect_options, connect_timeout, pool_max_idle_time) do
-    opts
-    |> Keyword.take([:inet6])
-    |> Keyword.merge(
-      connect_options: Keyword.put_new(connect_options, :timeout, connect_timeout),
-      pool_max_idle_time: pool_max_idle_time
-    )
-    |> Map.new()
-    |> Req.Finch.pool_options()
+    connect_options = merge_connect_timeout(connect_options, connect_timeout)
+
+    translated =
+      Keyword.take(opts, [:inet6]) ++
+        Enum.reject(
+          [connect_options: connect_options, pool_max_idle_time: pool_max_idle_time],
+          fn {_key, value} -> is_nil(value) end
+        )
+
+    case translated do
+      [] -> []
+      translated -> Req.Finch.pool_options(Map.new(translated))
+    end
   end
+
+  defp merge_connect_timeout(connect_options, nil), do: connect_options
+  defp merge_connect_timeout(nil, connect_timeout), do: [timeout: connect_timeout]
+
+  defp merge_connect_timeout(connect_options, connect_timeout),
+    do: Keyword.put_new(connect_options, :timeout, connect_timeout)
 end

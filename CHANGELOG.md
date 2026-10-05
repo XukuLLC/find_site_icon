@@ -6,9 +6,14 @@
 
 - Stopped passing `:pool_max_idle_time` to Req as a top-level option. Req 0.7 deprecated it in favour of `finch: [pool_max_idle_time: ...]`, and because `IO.warn/1` attaches a stacktrace to every occurrence, a single icon lookup emitted dozens of multi-line warnings to stderr. `:connect_options`, `:inet6` and `:pool_max_idle_time` are now folded into one `:finch` keyword list via `Req.Finch.pool_options/1`, which produces identical Finch pool options.
 
+### Added
+
+- `FindSiteIcon.Util.HTTPUtils.new/1` accepts `:finch` options, merged over the computed pool options. `finch: [name: MyFinch]` is taken verbatim and the library's pool defaults are not applied, since Req rejects pool options next to a pool name. Previously any `finch:` option raised, because `:connect_options` was always set alongside it.
+
 ### Changed
 
 - Requires Req `~> 0.7`. `finch: [pool_options]` and `Req.Finch.pool_options/1` were both introduced in Req 0.7.0, so the fix cannot be expressed on 0.5/0.6.
+- `do_get/3` and `do_head/3` now translate only the options they are handed, layering them over whatever the request already carries. A prebuilt `Req.Request` keeps its pool settings instead of reverting to the defaults.
 
 ## 1.0.3 - 2026-06-29
 

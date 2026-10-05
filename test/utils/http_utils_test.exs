@@ -90,6 +90,48 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
     assert request.options[:finch][:pool_max_idle_time] == :infinity
   end
 
+  test "do_get/3 keeps the pool settings of a prebuilt request" do
+    # Regression test: request/3 merges the per-call options over the request,
+    # and Req.merge/2 replaces :finch wholesale. Translating only the options
+    # actually passed keeps whatever the request already carries.
+    request = capturing_request(pool_max_idle_time: :infinity, finch: [pool_timeout: 250])
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_get(request)
+
+    assert_received {:request_options, options}
+    assert options[:finch][:pool_max_idle_time] == :infinity
+    assert options[:finch][:pool_timeout] == 250
+    assert options[:finch][:conn_opts][:transport_opts][:timeout] == 30_000
+  end
+
+  test "do_head/3 keeps the pool settings of a prebuilt request" do
+    request = capturing_request(pool_max_idle_time: :infinity)
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_head(request)
+
+    assert_received {:request_options, options}
+    assert options[:finch][:pool_max_idle_time] == :infinity
+  end
+
+  test "do_get/3 applies per-call options without resetting the rest of the pool" do
+    request = capturing_request(pool_max_idle_time: :infinity)
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_get(request, [], timeout: 1_500)
+
+    assert_received {:request_options, options}
+    assert options[:finch][:conn_opts][:transport_opts][:timeout] == 1_500
+    assert options[:receive_timeout] == 1_500
+    assert options[:finch][:pool_max_idle_time] == :infinity
+  end
+
+  test "new/1 accepts a Finch pool name without raising on pool options" do
+    # Req raises `cannot set Finch pool options together with :name in :finch`,
+    # so a caller-supplied name has to suppress the library's pool defaults.
+    request = HTTPUtils.new(finch: [name: FindSiteIcon.TestFinch])
+
+    assert request.options[:finch] == [name: FindSiteIcon.TestFinch]
+  end
+
   test "do_get/3 follows redirects and returns response body" do
     bypass = Bypass.open()
 
@@ -136,5 +178,10 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
     icon_url = "http://localhost:#{bypass.port}/icon.png"
 
     assert %IconInfo{url: ^icon_url} = IconUtils.icon_info_for(icon_url, timeout: 1_000)
+  end
+
+  defp capturing_request(opts) do
+    HTTPUtils.new(Keyword.merge([url: "http://example.com/", adapter: FindSiteIcon.CaptureAdapter], opts))
+    |> Req.Request.put_private(:test_pid, self())
   end
 end
