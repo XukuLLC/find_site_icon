@@ -132,6 +132,52 @@ defmodule FindSiteIcon.Util.HTTPUtilsTest do
     assert request.options[:finch] == [name: FindSiteIcon.TestFinch]
   end
 
+  test "do_get/3 accepts per-call options on a request that uses a named Finch pool" do
+    # Regression test: the per-call timeout used to add pool options next to
+    # the request's `:name`, and Req raised `cannot set Finch pool options
+    # together with :name in :finch` instead of returning a result.
+    request = capturing_request(finch: [name: FindSiteIcon.TestFinch])
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_get(request, [], timeout: 1_500)
+
+    assert_received {:request_options, options}
+    assert options[:finch] == [name: FindSiteIcon.TestFinch]
+    assert options[:receive_timeout] == 1_500
+  end
+
+  test "do_get/3 keeps nested connect options when a per-call timeout changes" do
+    # Regression test: Req's translation always emits :protocols and a fresh
+    # :conn_opts, so merging translated options let a per-call timeout drop
+    # the request's hostname and fall back to HTTP/1.
+    request =
+      capturing_request(
+        connect_options: [hostname: "h.example", protocols: [:http2], transport_opts: [verify: :verify_none]]
+      )
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_get(request, [], timeout: 1_500)
+
+    assert_received {:request_options, options}
+    assert options[:finch][:conn_opts][:hostname] == "h.example"
+    assert options[:finch][:protocols] == [:http2]
+    assert options[:finch][:conn_opts][:transport_opts][:verify] == :verify_none
+    assert options[:finch][:conn_opts][:transport_opts][:timeout] == 1_500
+    assert options[:finch][:pool_max_idle_time] == 30_000
+  end
+
+  test "do_get/3 folds :connect_options of a request not built by new/1" do
+    request =
+      [url: "http://example.com/", adapter: FindSiteIcon.CaptureAdapter, connect_options: [hostname: "h.example"]]
+      |> Req.new()
+      |> Req.Request.put_private(:test_pid, self())
+
+    assert {:ok, %Req.Response{status: 200}} = HTTPUtils.do_get(request, [], timeout: 1_500)
+
+    assert_received {:request_options, options}
+    refute Map.has_key?(options, :connect_options)
+    assert options[:finch][:conn_opts][:hostname] == "h.example"
+    assert options[:finch][:conn_opts][:transport_opts][:timeout] == 1_500
+  end
+
   test "do_get/3 follows redirects and returns response body" do
     bypass = Bypass.open()
 
